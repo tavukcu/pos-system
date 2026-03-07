@@ -46,12 +46,35 @@ if DB_MODE == 'postgres':
     def get_connection():
         return psycopg2.connect(DATABASE_URL)
 
+    # PostgreSQL lowercase kolon isimlerini orijinal case'e map et
+    _COL_MAP = {}
+    for _t in ['nStokID','sKodu','sAciklama','sKisaAdi','nStokTipi','sBirimCinsi1',
+        'nIskontoYuzdesi','sKdvTipi','lFiyat','sFiyatTipi','sBarkod','nFirmaID',
+        'nMusteriID','sAdi','sSoyadi','sTelefon1','sIl',
+        'nAlisverisID','sFisTipi','dteFaturaTarihi','nGirisCikis','lFaturaNo',
+        'sMagaza','sKasiyerRumuzu','sAlisverisYapanAdi','sAlisverisYapanSoyadi',
+        'lToplamMiktar','lMalBedeli','lNetTutar','sHareketTipi','sKullaniciAdi',
+        'dteKayitTarihi','lCikisMiktar1','lCikisTutar','lCikisFiyat',
+        'dteIslemTarihi','nOdemeID','sOdemeSekli','lOdemeTutar',
+        'dteOdemeTarihi','nKasaNo','bMuhasebeyeIslendimi',
+        'sOzelNot','nFiyatlandirma','sModel','bEksiyeDusulebilirmi',
+        'sDefaultAsortiTipi','bEksideUyarsinmi','bOTVVar','sOTVTipi',
+        'nIskontoYuzdesiAV','bEk1','nEk2','nPrim','nEn','nBoy','nYukseklik',
+        'nHacim','nAgirlik','sDovizCinsi','sAlisKdvTipi','nButce','nKarlilik','sUlke',
+        'nTeminSuresi','lAsgariMiktar','lAzamiMiktar',
+        'sKarsiStokKodu','sKarsiStokAciklama','sBirimCinsi','lBirimMiktar',
+        'dteFiyatTespitTarihi','nIslemID']:
+        _COL_MAP[_t.lower()] = _t
+
+    def _restore_keys(row):
+        return {_COL_MAP.get(k, k): v for k, v in row.items()}
+
     def query(sql, params=None):
         sql = adapt_sql(sql)
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute(sql, params or [])
-        rows = [dict(r) for r in cursor.fetchall()]
+        rows = [_restore_keys(dict(r)) for r in cursor.fetchall()]
         conn.close()
         return rows
 
