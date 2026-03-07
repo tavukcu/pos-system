@@ -493,111 +493,111 @@ def api_rapor_son_satislar():
 # --- API: MIGRATION (uzaktan veri aktarimi) ---
 
 MIGRATE_TABLES_SQL = """
-DROP TABLE IF EXISTS "tbStokFisiDetayi" CASCADE;
-DROP TABLE IF EXISTS "tbStokFiyati" CASCADE;
-DROP TABLE IF EXISTS "tbStokBarkodu" CASCADE;
-DROP TABLE IF EXISTS "tbStokSinifi" CASCADE;
-DROP TABLE IF EXISTS "tbOdeme" CASCADE;
-DROP TABLE IF EXISTS "tbAlisVeris" CASCADE;
-DROP TABLE IF EXISTS "tbMusteri" CASCADE;
-DROP TABLE IF EXISTS "tbStok" CASCADE;
+DROP TABLE IF EXISTS tbstokfisidetayi CASCADE;
+DROP TABLE IF EXISTS tbstokfiyati CASCADE;
+DROP TABLE IF EXISTS tbstokbarkodu CASCADE;
+DROP TABLE IF EXISTS tbstoksinifi CASCADE;
+DROP TABLE IF EXISTS tbodeme CASCADE;
+DROP TABLE IF EXISTS tbalisveris CASCADE;
+DROP TABLE IF EXISTS tbmusteri CASCADE;
+DROP TABLE IF EXISTS tbstok CASCADE;
 
-CREATE TABLE IF NOT EXISTS "tbStok" (
-    "nStokID" INTEGER PRIMARY KEY, "sKodu" VARCHAR(20) DEFAULT '', "sAciklama" VARCHAR(60) DEFAULT '',
-    "sKisaAdi" VARCHAR(20) DEFAULT '', "nStokTipi" NUMERIC DEFAULT 0, "sBirimCinsi1" VARCHAR(3) DEFAULT 'KG',
-    "nIskontoYuzdesi" NUMERIC DEFAULT 0, "sKdvTipi" VARCHAR(10) DEFAULT '', "nTeminSuresi" NUMERIC DEFAULT 0,
-    "lAsgariMiktar" NUMERIC DEFAULT 0, "lAzamiMiktar" NUMERIC DEFAULT 0, "sOzelNot" VARCHAR(255) DEFAULT '',
-    "nFiyatlandirma" NUMERIC DEFAULT 0, "sModel" VARCHAR(20) DEFAULT '', "sKullaniciAdi" VARCHAR(60) DEFAULT '',
-    "dteKayitTarihi" TIMESTAMP, "bEksiyeDusulebilirmi" BOOLEAN DEFAULT FALSE, "sDefaultAsortiTipi" VARCHAR(3) DEFAULT '',
-    "bEksideUyarsinmi" BOOLEAN DEFAULT FALSE, "bOTVVar" BOOLEAN DEFAULT FALSE, "sOTVTipi" VARCHAR(10) DEFAULT '',
-    "nIskontoYuzdesiAV" NUMERIC DEFAULT 0, "bEk1" BOOLEAN DEFAULT FALSE, "nEk2" SMALLINT DEFAULT 0,
-    "nPrim" NUMERIC DEFAULT 0, "nEn" NUMERIC DEFAULT 0, "nBoy" NUMERIC DEFAULT 0, "nYukseklik" NUMERIC DEFAULT 0,
-    "nHacim" NUMERIC DEFAULT 0, "nAgirlik" NUMERIC DEFAULT 0, "sDovizCinsi" VARCHAR(3) DEFAULT 'TL',
-    "sAlisKdvTipi" VARCHAR(10) DEFAULT '', "nButce" NUMERIC DEFAULT 0, "nKarlilik" NUMERIC DEFAULT 0, "sUlke" VARCHAR(20) DEFAULT ''
+CREATE TABLE tbstok (
+    nstokid INTEGER PRIMARY KEY, skodu VARCHAR(20) DEFAULT '', saciklama VARCHAR(60) DEFAULT '',
+    skisaadi VARCHAR(20) DEFAULT '', nstoktipi NUMERIC DEFAULT 0, sbirimcinsi1 VARCHAR(3) DEFAULT 'KG',
+    niskontoyuzdesi NUMERIC DEFAULT 0, skdvtipi VARCHAR(10) DEFAULT '', nteminsuresi NUMERIC DEFAULT 0,
+    lasgarimiktar NUMERIC DEFAULT 0, lazamimiktar NUMERIC DEFAULT 0, sozelnot VARCHAR(255) DEFAULT '',
+    nfiyatlandirma NUMERIC DEFAULT 0, smodel VARCHAR(20) DEFAULT '', skullaniciadi VARCHAR(60) DEFAULT '',
+    dtekayittarihi TIMESTAMP, beksiyedusulebilirmi BOOLEAN DEFAULT FALSE, sdefaultasortitipi VARCHAR(3) DEFAULT '',
+    beksideuyarsinmi BOOLEAN DEFAULT FALSE, botvvar BOOLEAN DEFAULT FALSE, sotvtipi VARCHAR(10) DEFAULT '',
+    niskontoyuzdesiav NUMERIC DEFAULT 0, bek1 BOOLEAN DEFAULT FALSE, nek2 SMALLINT DEFAULT 0,
+    nprim NUMERIC DEFAULT 0, nen NUMERIC DEFAULT 0, nboy NUMERIC DEFAULT 0, nyukseklik NUMERIC DEFAULT 0,
+    nhacim NUMERIC DEFAULT 0, nagirlik NUMERIC DEFAULT 0, sdovizcinsi VARCHAR(3) DEFAULT 'TL',
+    saliskdvtipi VARCHAR(10) DEFAULT '', nbutce NUMERIC DEFAULT 0, nkarlilik NUMERIC DEFAULT 0, sulke VARCHAR(20) DEFAULT ''
 );
-CREATE TABLE IF NOT EXISTS "tbStokBarkodu" (
-    "nStokID" INTEGER NOT NULL, "sBarkod" VARCHAR(20) DEFAULT '', "nFirmaID" INTEGER DEFAULT 0,
-    "sKarsiStokKodu" VARCHAR(20) DEFAULT '', "sKarsiStokAciklama" VARCHAR(60) DEFAULT '',
-    "sBirimCinsi" VARCHAR(3) DEFAULT '', "lBirimMiktar" NUMERIC DEFAULT 0
+CREATE TABLE tbstokbarkodu (
+    nstokid INTEGER NOT NULL, sbarkod VARCHAR(20) DEFAULT '', nfirmaid INTEGER DEFAULT 0,
+    skarsistokkodu VARCHAR(20) DEFAULT '', skarsistokaciklama VARCHAR(60) DEFAULT '',
+    sbirimcinsi VARCHAR(3) DEFAULT '', lbirimmiktar NUMERIC DEFAULT 0
 );
-CREATE TABLE IF NOT EXISTS "tbStokFiyati" (
-    "nStokID" INTEGER NOT NULL, "sFiyatTipi" VARCHAR(4) DEFAULT '', "lFiyat" NUMERIC(19,4) DEFAULT 0,
-    "dteFiyatTespitTarihi" TIMESTAMP, "sKullaniciAdi" VARCHAR(60) DEFAULT '', "dteKayitTarihi" TIMESTAMP
+CREATE TABLE tbstokfiyati (
+    nstokid INTEGER NOT NULL, sfiyattipi VARCHAR(4) DEFAULT '', lfiyat NUMERIC(19,4) DEFAULT 0,
+    dtefiyattespittarihi TIMESTAMP, skullaniciadi VARCHAR(60) DEFAULT '', dtekayittarihi TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS "tbStokSinifi" (
-    "nStokID" INTEGER PRIMARY KEY, "sSinifKodu1" VARCHAR(10) DEFAULT '', "sSinifKodu2" VARCHAR(10) DEFAULT '',
-    "sSinifKodu3" VARCHAR(10) DEFAULT '', "sSinifKodu4" VARCHAR(10) DEFAULT '', "sSinifKodu5" VARCHAR(10) DEFAULT '',
-    "sSinifKodu6" VARCHAR(10) DEFAULT '', "sSinifKodu7" VARCHAR(10) DEFAULT '', "sSinifKodu8" VARCHAR(10) DEFAULT '',
-    "sSinifKodu9" VARCHAR(10) DEFAULT '', "sSinifKodu10" VARCHAR(10) DEFAULT '', "sSinifKodu11" VARCHAR(10) DEFAULT '',
-    "sSinifKodu12" VARCHAR(10) DEFAULT '', "sSinifKodu13" VARCHAR(10) DEFAULT '', "sSinifKodu14" VARCHAR(10) DEFAULT '',
-    "sSinifKodu15" VARCHAR(10) DEFAULT ''
+CREATE TABLE tbstoksinifi (
+    nstokid INTEGER PRIMARY KEY, ssinifkodu1 VARCHAR(10) DEFAULT '', ssinifkodu2 VARCHAR(10) DEFAULT '',
+    ssinifkodu3 VARCHAR(10) DEFAULT '', ssinifkodu4 VARCHAR(10) DEFAULT '', ssinifkodu5 VARCHAR(10) DEFAULT '',
+    ssinifkodu6 VARCHAR(10) DEFAULT '', ssinifkodu7 VARCHAR(10) DEFAULT '', ssinifkodu8 VARCHAR(10) DEFAULT '',
+    ssinifkodu9 VARCHAR(10) DEFAULT '', ssinifkodu10 VARCHAR(10) DEFAULT '', ssinifkodu11 VARCHAR(10) DEFAULT '',
+    ssinifkodu12 VARCHAR(10) DEFAULT '', ssinifkodu13 VARCHAR(10) DEFAULT '', ssinifkodu14 VARCHAR(10) DEFAULT '',
+    ssinifkodu15 VARCHAR(10) DEFAULT ''
 );
-CREATE TABLE IF NOT EXISTS "tbMusteri" (
-    "nMusteriID" INTEGER PRIMARY KEY, "sAdi" VARCHAR(60) DEFAULT '', "sSoyadi" VARCHAR(60) DEFAULT '',
-    "sTelefon1" VARCHAR(30) DEFAULT '', "sIl" VARCHAR(30) DEFAULT ''
+CREATE TABLE tbmusteri (
+    nmusteriid INTEGER PRIMARY KEY, sadi VARCHAR(60) DEFAULT '', ssoyadi VARCHAR(60) DEFAULT '',
+    stelefon1 VARCHAR(30) DEFAULT '', sil VARCHAR(30) DEFAULT ''
 );
-CREATE TABLE IF NOT EXISTS "tbAlisVeris" (
-    "nAlisverisID" VARCHAR(20) PRIMARY KEY, "sFisTipi" VARCHAR(3) DEFAULT '', "dteFaturaTarihi" TIMESTAMP,
-    "nGirisCikis" NUMERIC DEFAULT 0, "lFaturaNo" NUMERIC DEFAULT 0, "nMusteriID" INTEGER DEFAULT 0,
-    "sMagaza" VARCHAR(4) DEFAULT '', "sKasiyerRumuzu" VARCHAR(4) DEFAULT '',
-    "sAlisverisYapanAdi" VARCHAR(60) DEFAULT '', "sAlisverisYapanSoyadi" VARCHAR(60) DEFAULT '',
-    "lToplamMiktar" NUMERIC DEFAULT 0, "lMalBedeli" NUMERIC DEFAULT 0, "lMalIskontoTutari" NUMERIC DEFAULT 0,
-    "nDipIskontoYuzdesi" NUMERIC DEFAULT 0, "lDipIskontoTutari" NUMERIC DEFAULT 0,
-    "nKdvOrani1" NUMERIC DEFAULT 0, "lKdvMatrahi1" NUMERIC DEFAULT 0, "lKdv1" NUMERIC DEFAULT 0,
-    "nKdvOrani2" NUMERIC DEFAULT 0, "lKdvMatrahi2" NUMERIC DEFAULT 0, "lKdv2" NUMERIC DEFAULT 0,
-    "nKdvOrani3" NUMERIC DEFAULT 0, "lKdvMatrahi3" NUMERIC DEFAULT 0, "lKdv3" NUMERIC DEFAULT 0,
-    "nKdvOrani4" NUMERIC DEFAULT 0, "lKdvMatrahi4" NUMERIC DEFAULT 0, "lKdv4" NUMERIC DEFAULT 0,
-    "nKdvOrani5" NUMERIC DEFAULT 0, "lKdvMatrahi5" NUMERIC DEFAULT 0, "lKdv5" NUMERIC DEFAULT 0,
-    "lPesinat" NUMERIC DEFAULT 0, "nVadeFarkiYuzdesi" NUMERIC DEFAULT 0,
-    "nVadeKdvOrani" NUMERIC DEFAULT 0, "lVadeKdvMatrahi" NUMERIC DEFAULT 0, "lVadeKdv" NUMERIC DEFAULT 0,
-    "lVadeFarki" NUMERIC DEFAULT 0, "lNetTutar" NUMERIC DEFAULT 0, "sHareketTipi" VARCHAR(20) DEFAULT '',
-    "bMuhasebeyeIslendimi" BOOLEAN DEFAULT FALSE, "sKullaniciAdi" VARCHAR(60) DEFAULT '', "dteKayitTarihi" TIMESTAMP
+CREATE TABLE tbalisveris (
+    nalisverisid VARCHAR(20) PRIMARY KEY, sfistipi VARCHAR(3) DEFAULT '', dtefaturatarihi TIMESTAMP,
+    ngiriscikis NUMERIC DEFAULT 0, lfaturano NUMERIC DEFAULT 0, nmusteriid INTEGER DEFAULT 0,
+    smagaza VARCHAR(4) DEFAULT '', skasiyerrumuzu VARCHAR(4) DEFAULT '',
+    salisverisyapanadi VARCHAR(60) DEFAULT '', salisverisyapansoyadi VARCHAR(60) DEFAULT '',
+    ltoplammiktar NUMERIC DEFAULT 0, lmalbedeli NUMERIC DEFAULT 0, lmaliskontotutari NUMERIC DEFAULT 0,
+    ndipiskontoyuzdesi NUMERIC DEFAULT 0, ldipiskontotutar NUMERIC DEFAULT 0,
+    nkdvorani1 NUMERIC DEFAULT 0, lkdvmatrahi1 NUMERIC DEFAULT 0, lkdv1 NUMERIC DEFAULT 0,
+    nkdvorani2 NUMERIC DEFAULT 0, lkdvmatrahi2 NUMERIC DEFAULT 0, lkdv2 NUMERIC DEFAULT 0,
+    nkdvorani3 NUMERIC DEFAULT 0, lkdvmatrahi3 NUMERIC DEFAULT 0, lkdv3 NUMERIC DEFAULT 0,
+    nkdvorani4 NUMERIC DEFAULT 0, lkdvmatrahi4 NUMERIC DEFAULT 0, lkdv4 NUMERIC DEFAULT 0,
+    nkdvorani5 NUMERIC DEFAULT 0, lkdvmatrahi5 NUMERIC DEFAULT 0, lkdv5 NUMERIC DEFAULT 0,
+    lpesinat NUMERIC DEFAULT 0, nvadefarkiyuzdesi NUMERIC DEFAULT 0,
+    nvadekdvorani NUMERIC DEFAULT 0, lvadekdvmatrahi NUMERIC DEFAULT 0, lvadekdv NUMERIC DEFAULT 0,
+    lvadefarki NUMERIC DEFAULT 0, lnettutar NUMERIC DEFAULT 0, sharekettipi VARCHAR(20) DEFAULT '',
+    bmuhasebeyeislendimi BOOLEAN DEFAULT FALSE, skullaniciadi VARCHAR(60) DEFAULT '', dtekayittarihi TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS "tbOdeme" (
-    "nOdemeID" VARCHAR(20) PRIMARY KEY, "nAlisverisID" VARCHAR(20) DEFAULT '', "sOdemeSekli" VARCHAR(4) DEFAULT '',
-    "nOdemeKodu" NUMERIC DEFAULT 0, "sKasiyerRumuzu" VARCHAR(4) DEFAULT '', "dteOdemeTarihi" TIMESTAMP,
-    "dteValorTarihi" TIMESTAMP, "lOdemeTutar" NUMERIC DEFAULT 0, "sDovizCinsi" VARCHAR(3) DEFAULT 'TL',
-    "lDovizTutar" NUMERIC DEFAULT 0, "lMakbuzNo" NUMERIC DEFAULT 0, "lOdemeNo" NUMERIC DEFAULT 0,
-    "nTaksitID" VARCHAR(20) DEFAULT '', "nIadeAlisverisID" VARCHAR(20) DEFAULT '',
-    "bMuhasebeyeIslendimi" BOOLEAN DEFAULT FALSE, "nKasaNo" NUMERIC DEFAULT 0,
-    "sKullaniciAdi" VARCHAR(60) DEFAULT '', "dteKayitTarihi" TIMESTAMP, "sMagaza" VARCHAR(4) DEFAULT ''
+CREATE TABLE tbodeme (
+    nodemeid VARCHAR(20) PRIMARY KEY, nalisverisid VARCHAR(20) DEFAULT '', sodemesekli VARCHAR(4) DEFAULT '',
+    nodemekodu NUMERIC DEFAULT 0, skasiyerrumuzu VARCHAR(4) DEFAULT '', dteodemetarihi TIMESTAMP,
+    dtevalortarihi TIMESTAMP, lodemetutar NUMERIC DEFAULT 0, sdovizcinsi VARCHAR(3) DEFAULT 'TL',
+    ldoviztutar NUMERIC DEFAULT 0, lmakbuzno NUMERIC DEFAULT 0, lodemeno NUMERIC DEFAULT 0,
+    ntaksitid VARCHAR(20) DEFAULT '', niadealisverisid VARCHAR(20) DEFAULT '',
+    bmuhasebeyeislendimi BOOLEAN DEFAULT FALSE, nkasano NUMERIC DEFAULT 0,
+    skullaniciadi VARCHAR(60) DEFAULT '', dtekayittarihi TIMESTAMP, smagaza VARCHAR(4) DEFAULT ''
 );
-CREATE TABLE IF NOT EXISTS "tbStokFisiDetayi" (
-    "nIslemID" NUMERIC NOT NULL, "nStokID" INTEGER DEFAULT 0, "dteIslemTarihi" TIMESTAMP,
-    "nFirmaID" INTEGER DEFAULT 0, "nMusteriID" INTEGER DEFAULT 0, "sFisTipi" VARCHAR(3) DEFAULT '',
-    "dteFisTarihi" TIMESTAMP, "lFisNo" NUMERIC DEFAULT 0, "nGirisCikis" NUMERIC DEFAULT 0,
-    "sDepo" VARCHAR(4) DEFAULT '', "lReyonFisNo" NUMERIC DEFAULT 0, "sStokIslem" VARCHAR(3) DEFAULT '',
-    "sKasiyerRumuzu" VARCHAR(4) DEFAULT '', "sSaticiRumuzu" VARCHAR(4) DEFAULT '', "sOdemeKodu" VARCHAR(4) DEFAULT '',
-    "dteIrsaliyeTarihi" TIMESTAMP, "lIrsaliyeNo" NUMERIC DEFAULT 0,
-    "lGirisMiktar1" NUMERIC DEFAULT 0, "lGirisMiktar2" NUMERIC DEFAULT 0,
-    "lGirisFiyat" NUMERIC(19,4) DEFAULT 0, "lGirisTutar" NUMERIC DEFAULT 0,
-    "lCikisMiktar1" NUMERIC DEFAULT 0, "lCikisMiktar2" NUMERIC DEFAULT 0,
-    "lCikisFiyat" NUMERIC(19,4) DEFAULT 0, "lCikisTutar" NUMERIC DEFAULT 0,
-    "sFiyatTipi" VARCHAR(4) DEFAULT '', "lBrutFiyat" NUMERIC(19,4) DEFAULT 0, "lBrutTutar" NUMERIC DEFAULT 0,
-    "lMaliyetFiyat" NUMERIC(19,4) DEFAULT 0, "lMaliyetTutar" NUMERIC DEFAULT 0,
-    "lIlaveMaliyetTutar" NUMERIC DEFAULT 0, "nIskontoYuzdesi" NUMERIC DEFAULT 0, "lIskontoTutari" NUMERIC DEFAULT 0,
-    "sDovizCinsi" VARCHAR(3) DEFAULT 'TL', "lDovizFiyat" NUMERIC(19,4) DEFAULT 0,
-    "nSiparisID" INTEGER DEFAULT 0, "nReceteNo" NUMERIC DEFAULT 0, "nTransferID" NUMERIC DEFAULT 0,
-    "sTransferDepo" VARCHAR(4) DEFAULT '', "nKdvOrani" NUMERIC DEFAULT 0, "nHesapID" INTEGER DEFAULT 0,
-    "sAciklama" VARCHAR(60) DEFAULT '', "sHareketTipi" VARCHAR(20) DEFAULT '',
-    "bMuhasebeyeIslendimi" BOOLEAN DEFAULT FALSE, "sKullaniciAdi" VARCHAR(60) DEFAULT '',
-    "dteKayitTarihi" TIMESTAMP, "nAlisverisID" VARCHAR(20) DEFAULT '',
-    "nStokFisiID" NUMERIC DEFAULT 0, "nIrsaliyeFisiID" NUMERIC DEFAULT 0
+CREATE TABLE tbstokfisidetayi (
+    nislemid NUMERIC NOT NULL, nstokid INTEGER DEFAULT 0, dteislemtarihi TIMESTAMP,
+    nfirmaid INTEGER DEFAULT 0, nmusteriid INTEGER DEFAULT 0, sfistipi VARCHAR(3) DEFAULT '',
+    dtefistarihi TIMESTAMP, lfisno NUMERIC DEFAULT 0, ngiriscikis NUMERIC DEFAULT 0,
+    sdepo VARCHAR(4) DEFAULT '', lreyonfisno NUMERIC DEFAULT 0, sstokislem VARCHAR(3) DEFAULT '',
+    skasiyerrumuzu VARCHAR(4) DEFAULT '', ssaticirumuzu VARCHAR(4) DEFAULT '', sodemekodu VARCHAR(4) DEFAULT '',
+    dteirsaliyetarihi TIMESTAMP, lirsaliyeno NUMERIC DEFAULT 0,
+    lgirismiktar1 NUMERIC DEFAULT 0, lgirismiktar2 NUMERIC DEFAULT 0,
+    lgirisfiyat NUMERIC(19,4) DEFAULT 0, lgiristutar NUMERIC DEFAULT 0,
+    lcikismiktar1 NUMERIC DEFAULT 0, lcikismiktar2 NUMERIC DEFAULT 0,
+    lcikisfiyat NUMERIC(19,4) DEFAULT 0, lcikistutar NUMERIC DEFAULT 0,
+    sfiyattipi VARCHAR(4) DEFAULT '', lbrutfiyat NUMERIC(19,4) DEFAULT 0, lbruttutar NUMERIC DEFAULT 0,
+    lmaliyetfiyat NUMERIC(19,4) DEFAULT 0, lmaliyettutar NUMERIC DEFAULT 0,
+    lilavemaliyettutar NUMERIC DEFAULT 0, niskontoyuzdesi NUMERIC DEFAULT 0, liskontotutari NUMERIC DEFAULT 0,
+    sdovizcinsi VARCHAR(3) DEFAULT 'TL', ldovizfiyat NUMERIC(19,4) DEFAULT 0,
+    nsiparisid INTEGER DEFAULT 0, nreceteno NUMERIC DEFAULT 0, ntransferid NUMERIC DEFAULT 0,
+    stransferdepo VARCHAR(4) DEFAULT '', nkdvorani NUMERIC DEFAULT 0, nhesapid INTEGER DEFAULT 0,
+    saciklama VARCHAR(60) DEFAULT '', sharekettipi VARCHAR(20) DEFAULT '',
+    bmuhasebeyeislendimi BOOLEAN DEFAULT FALSE, skullaniciadi VARCHAR(60) DEFAULT '',
+    dtekayittarihi TIMESTAMP, nalisverisid VARCHAR(20) DEFAULT '',
+    nstokfisiid NUMERIC DEFAULT 0, nirsaliyefisiid NUMERIC DEFAULT 0
 );
 """
 
 MIGRATE_INDEXES_SQL = """
-CREATE INDEX IF NOT EXISTS idx_stok_kod ON "tbStok" ("sKodu");
-CREATE INDEX IF NOT EXISTS idx_stok_aciklama ON "tbStok" ("sAciklama");
-CREATE INDEX IF NOT EXISTS idx_barkod_barkod ON "tbStokBarkodu" ("sBarkod");
-CREATE INDEX IF NOT EXISTS idx_barkod_stokid ON "tbStokBarkodu" ("nStokID");
-CREATE INDEX IF NOT EXISTS idx_fiyat_stokid ON "tbStokFiyati" ("nStokID", "sFiyatTipi");
-CREATE INDEX IF NOT EXISTS idx_av_tarih ON "tbAlisVeris" ("dteFaturaTarihi");
-CREATE INDEX IF NOT EXISTS idx_av_fistipi ON "tbAlisVeris" ("sFisTipi");
-CREATE INDEX IF NOT EXISTS idx_sfd_tarih ON "tbStokFisiDetayi" ("dteIslemTarihi");
-CREATE INDEX IF NOT EXISTS idx_sfd_stokid ON "tbStokFisiDetayi" ("nStokID");
-CREATE INDEX IF NOT EXISTS idx_sfd_avid ON "tbStokFisiDetayi" ("nAlisverisID");
-CREATE INDEX IF NOT EXISTS idx_odeme_avid ON "tbOdeme" ("nAlisverisID");
+CREATE INDEX IF NOT EXISTS idx_stok_kod ON tbstok (skodu);
+CREATE INDEX IF NOT EXISTS idx_stok_aciklama ON tbstok (saciklama);
+CREATE INDEX IF NOT EXISTS idx_barkod_barkod ON tbstokbarkodu (sbarkod);
+CREATE INDEX IF NOT EXISTS idx_barkod_stokid ON tbstokbarkodu (nstokid);
+CREATE INDEX IF NOT EXISTS idx_fiyat_stokid ON tbstokfiyati (nstokid, sfiyattipi);
+CREATE INDEX IF NOT EXISTS idx_av_tarih ON tbalisveris (dtefaturatarihi);
+CREATE INDEX IF NOT EXISTS idx_av_fistipi ON tbalisveris (sfistipi);
+CREATE INDEX IF NOT EXISTS idx_sfd_tarih ON tbstokfisidetayi (dteislemtarihi);
+CREATE INDEX IF NOT EXISTS idx_sfd_stokid ON tbstokfisidetayi (nstokid);
+CREATE INDEX IF NOT EXISTS idx_sfd_avid ON tbstokfisidetayi (nalisverisid);
+CREATE INDEX IF NOT EXISTS idx_odeme_avid ON tbodeme (nalisverisid);
 """
 
 MIGRATE_SECRET = 'pos-migrate-2024'
@@ -622,9 +622,9 @@ def api_migrate_data():
     cols = request.json.get('cols', [])
     if not table or not rows:
         return jsonify({'error': 'table ve rows gerekli'}), 400
-    col_names = ', '.join([f'"{c}"' for c in cols])
+    col_names = ', '.join([c.lower() for c in cols])
     placeholders = ', '.join(['%s'] * len(cols))
-    sql = f'INSERT INTO "{table}" ({col_names}) VALUES ({placeholders})'
+    sql = f'INSERT INTO {table.lower()} ({col_names}) VALUES ({placeholders})'
     conn = get_connection()
     cursor = conn.cursor()
     count = 0
