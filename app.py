@@ -542,7 +542,7 @@ CREATE TABLE tbalisveris (
     smagaza VARCHAR(4) DEFAULT '', skasiyerrumuzu VARCHAR(4) DEFAULT '',
     salisverisyapanadi VARCHAR(60) DEFAULT '', salisverisyapansoyadi VARCHAR(60) DEFAULT '',
     ltoplammiktar NUMERIC DEFAULT 0, lmalbedeli NUMERIC DEFAULT 0, lmaliskontotutari NUMERIC DEFAULT 0,
-    ndipiskontoyuzdesi NUMERIC DEFAULT 0, ldipiskontotutar NUMERIC DEFAULT 0,
+    ndipiskontoyuzdesi NUMERIC DEFAULT 0, ldipiskontotutari NUMERIC DEFAULT 0,
     nkdvorani1 NUMERIC DEFAULT 0, lkdvmatrahi1 NUMERIC DEFAULT 0, lkdv1 NUMERIC DEFAULT 0,
     nkdvorani2 NUMERIC DEFAULT 0, lkdvmatrahi2 NUMERIC DEFAULT 0, lkdv2 NUMERIC DEFAULT 0,
     nkdvorani3 NUMERIC DEFAULT 0, lkdvmatrahi3 NUMERIC DEFAULT 0, lkdv3 NUMERIC DEFAULT 0,
