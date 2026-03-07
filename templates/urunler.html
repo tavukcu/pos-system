@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Urunler - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Urunler</h1>
+</div>
+
+<div class="search-bar">
+    <input type="text" id="urun-search" placeholder="Urun kodu veya adi ile ara...">
+    <button class="btn btn-primary" onclick="searchUrunler()">Ara</button>
+</div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Kod</th>
+                    <th>Urun Adi</th>
+                    <th>Birim</th>
+                    <th>Fiyat</th>
+                </tr>
+            </thead>
+            <tbody id="urun-table"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => loadUrunler());
+document.getElementById('urun-search').addEventListener('keydown', e => { if (e.key === 'Enter') searchUrunler(); });
+
+async function loadUrunler() {
+    const data = await fetch('/api/urunler').then(r => r.json());
+    renderUrunler(data);
+}
+
+async function searchUrunler() {
+    const q = document.getElementById('urun-search').value.trim();
+    const data = await fetch('/api/urunler?q=' + encodeURIComponent(q)).then(r => r.json());
+    renderUrunler(data);
+}
+
+function renderUrunler(data) {
+    document.getElementById('urun-table').innerHTML = data.map(u => `
+        <tr>
+            <td><strong>${u.kod}</strong></td>
+            <td>${u.ad}</td>
+            <td><span class="badge badge-primary">${u.birim}</span></td>
+            <td><strong>${u.fiyat.toFixed(2)} TL</strong></td>
+        </tr>
+    `).join('');
+}
+</script>
+{% endblock %}

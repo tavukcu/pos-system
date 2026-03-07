@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Musteriler - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Musteriler</h1>
+</div>
+
+<div class="search-bar">
+    <input type="text" id="musteri-search" placeholder="Ad, soyad veya telefon ile ara...">
+    <button class="btn btn-primary" onclick="searchMusteriler()">Ara</button>
+</div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Ad</th>
+                    <th>Soyad</th>
+                    <th>Telefon</th>
+                    <th>Il</th>
+                </tr>
+            </thead>
+            <tbody id="musteri-table"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => loadMusteriler());
+document.getElementById('musteri-search').addEventListener('keydown', e => { if (e.key === 'Enter') searchMusteriler(); });
+
+async function loadMusteriler() {
+    const data = await fetch('/api/musteriler').then(r => r.json());
+    renderMusteriler(data);
+}
+
+async function searchMusteriler() {
+    const q = document.getElementById('musteri-search').value.trim();
+    const data = await fetch('/api/musteriler?q=' + encodeURIComponent(q)).then(r => r.json());
+    renderMusteriler(data);
+}
+
+function renderMusteriler(data) {
+    document.getElementById('musteri-table').innerHTML = data.map(m => `
+        <tr>
+            <td>${m.id}</td>
+            <td><strong>${m.adi}</strong></td>
+            <td>${m.soyadi}</td>
+            <td>${m.telefon}</td>
+            <td>${m.il}</td>
+        </tr>
+    `).join('');
+}
+</script>
+{% endblock %}

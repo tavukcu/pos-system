@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Ana Sayfa - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Ana Sayfa</h1>
+    <span id="today-date"></span>
+</div>
+
+<div class="grid grid-4" id="stats">
+    <div class="stat-card">
+        <div class="label">Bugunun Cirosu</div>
+        <div class="value success" id="st-ciro">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Islem Adedi</div>
+        <div class="value primary" id="st-islem">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Ortalama Fis</div>
+        <div class="value warning" id="st-ort">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Tarih</div>
+        <div class="value" id="st-tarih" style="font-size:18px">--</div>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h2>Aylik Ciro Grafigi</h2>
+        <div class="chart-container" id="chart-aylik"></div>
+    </div>
+    <div class="card">
+        <h2>En Cok Satan Urunler (30 Gun)</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Urun</th><th>Miktar</th><th>Tutar</th></tr></thead>
+                <tbody id="top-products"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Son Satislar</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Fis No</th><th>Tarih</th><th>Tip</th><th>Musteri</th><th>Tutar</th></tr></thead>
+            <tbody id="recent-sales"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('today-date').textContent = new Date().toLocaleDateString('tr-TR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+    // Daily stats
+    const daily = await fetch('/api/rapor/gunluk?tarih=' + today).then(r => r.json());
+    document.getElementById('st-ciro').textContent = formatMoney(daily.toplam_ciro);
+    document.getElementById('st-islem').textContent = daily.islem_adedi;
+    document.getElementById('st-ort').textContent = formatMoney(daily.ort_fis);
+    document.getElementById('st-tarih').textContent = new Date().toLocaleDateString('tr-TR');
+
+    // Monthly chart
+    const year = new Date().getFullYear();
+    const monthly = await fetch('/api/rapor/aylik?yil=' + year).then(r => r.json());
+    const chartEl = document.getElementById('chart-aylik');
+    const maxCiro = Math.max(...monthly.map(m => m.toplam_ciro), 1);
+    const aylar = ['Oca','Sub','Mar','Nis','May','Haz','Tem','Agu','Eyl','Eki','Kas','Ara'];
+    monthly.forEach(m => {
+        const pct = (m.toplam_ciro / maxCiro) * 250;
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar';
+        bar.style.height = Math.max(pct, 10) + 'px';
+        bar.innerHTML = `<span class="bar-value">${formatShort(m.toplam_ciro)}</span><span class="bar-label">${aylar[m.ay-1]}</span>`;
+        chartEl.appendChild(bar);
+    });
+
+    // Top products
+    const top = await fetch('/api/rapor/en_cok_satan?gun=30').then(r => r.json());
+    const topEl = document.getElementById('top-products');
+    top.slice(0, 10).forEach(p => {
+        topEl.innerHTML += `<tr><td>${p.urun}</td><td>${p.miktar.toFixed(1)}</td><td>${formatMoney(p.tutar)}</td></tr>`;
+    });
+
+    // Recent sales
+    const sales = await fetch('/api/rapor/son_satislar').then(r => r.json());
+    const salesEl = document.getElementById('recent-sales');
+    sales.slice(0, 15).forEach(s => {
+        const tipBadge = s.fis_tipi === 'P' ? '<span class="badge badge-success">Pesin</span>' : '<span class="badge badge-warning">Kredi</span>';
+        salesEl.innerHTML += `<tr><td>${s.fis_no}</td><td>${s.tarih}</td><td>${tipBadge}</td><td>${s.musteri || '-'}</td><td><strong>${formatMoney(s.tutar)}</strong></td></tr>`;
+    });
+});
+</script>
+{% endblock %}

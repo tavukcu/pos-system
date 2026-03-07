@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% block title %}Satis - POS{% endblock %}
+{% block content %}
+<div class="pos-layout pos-layout-simple">
+    <div class="pos-cart" style="grid-column:1/-1">
+        <div class="cart-header">
+            <div class="cart-header-top">
+                <span>Sepet (<span id="cart-count">0</span> kalem)</span>
+            </div>
+            <div class="cart-search">
+                <input type="text" id="search-input" placeholder="Barkod okutun veya urun adi yazin..." autofocus>
+                <button class="btn btn-primary" onclick="searchProducts()">Ara</button>
+            </div>
+            <div id="scan-status" class="scan-status"></div>
+        </div>
+        <div class="cart-items" id="cart-items"></div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>TOPLAM</span>
+                <span id="cart-total">0,00 TL</span>
+            </div>
+            <div class="cart-actions">
+                <button class="btn btn-danger btn-lg" onclick="clearCart()">Temizle</button>
+                <button class="btn btn-success btn-lg" onclick="completeSale()">Odeme Al</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ODEME MODAL -->
+<div class="modal-overlay" id="payment-modal">
+    <div class="modal">
+        <h3>Odeme</h3>
+        <div class="form-group">
+            <label>Toplam Tutar</label>
+            <input type="text" id="pay-total" readonly style="font-size:24px;font-weight:700;text-align:center">
+        </div>
+        <div class="form-group">
+            <label>Odeme Sekli</label>
+            <select id="pay-method">
+                <option value="N">Nakit</option>
+                <option value="K">Kredi Karti</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Musteri (Opsiyonel)</label>
+            <input type="text" id="pay-customer" placeholder="Musteri ara...">
+            <div id="customer-results" style="margin-top:8px"></div>
+        </div>
+        <input type="hidden" id="pay-customer-id" value="0">
+        <input type="hidden" id="pay-customer-name" value="">
+        <input type="hidden" id="pay-customer-surname" value="">
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('payment-modal')">Iptal</button>
+            <button class="btn btn-success btn-lg" onclick="confirmPayment()">Onayla</button>
+        </div>
+    </div>
+</div>
+
+<!-- YENI URUN EKLE MODAL -->
+<div class="modal-overlay" id="newproduct-modal">
+    <div class="modal np-modal">
+        <div class="np-header">
+            <h3>Yeni Urun Ekle</h3>
+            <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="closeModal('newproduct-modal')">X</button>
+        </div>
+        <div class="np-info" id="np-info"></div>
+        <div class="np-body">
+            <div class="form-row">
+                <div class="form-group" style="flex:1"><label>Barkod</label><input type="text" id="np-barkod" readonly class="input-dim input-sm"></div>
+                <div class="form-group" style="flex:1"><label>Urun Kodu</label><input type="text" id="np-urun-kodu" class="input-sm" placeholder="04750"></div>
+                <div class="form-group" style="flex:1"><label>Fiyat (TL/KG)</label><input type="number" id="np-fiyat" step="0.01" min="0" class="input-sm" placeholder="0.00"></div>
+                <div class="form-group" style="flex:1"><label>Agirlik (KG)</label><input type="number" id="np-agirlik" step="0.001" min="0" readonly class="input-dim input-sm"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:2"><label>Urun Adi</label><input type="text" id="np-urun-adi" class="input-sm" placeholder="KESKINOGLU TABAK INCIK"></div>
+                <div class="form-group" style="flex:1"><label>Kisa Adi (20)</label><input type="text" id="np-kisa-adi" maxlength="20" class="input-sm" placeholder="TABAK INCIK KESKIN"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:1"><label>Birim</label><select id="np-birim" class="input-sm"><option value="KG" selected>KG</option><option value="KGM">KGM</option><option value="AD">AD</option></select></div>
+                <div class="form-group" style="flex:1"><label>KDV</label><select id="np-kdv" class="input-sm"><option value="01">%1</option><option value="02" selected>%10 Et/Pilic</option><option value="03">%20</option><option value="05">%0</option></select></div>
+                <div class="form-group" style="flex:2">
+                    <label>Tip</label>
+                    <div class="tip-row">
+                        <button class="tip-btn selected" data-tip="tabak" onclick="selectUrunTipi(this)">Tabak</button>
+                        <button class="tip-btn" data-tip="poset" onclick="selectUrunTipi(this)">Poset</button>
+                        <button class="tip-btn" data-tip="dokme" onclick="selectUrunTipi(this)">Dokme</button>
+                        <button class="tip-btn" data-tip="koli" onclick="selectUrunTipi(this)">Koli</button>
+                    </div>
+                </div>
+            </div>
+            <div class="np-sec">
+                <label>Marka:</label>
+                <div class="tag-grid">
+                    <button class="tag" onclick="setMarka('KESKINOGLU')">Keskinoglu</button>
+                    <button class="tag" onclick="setMarka('BANVIT')">Banvit</button>
+                    <button class="tag" onclick="setMarka('LEZITA')">Lezita</button>
+                    <button class="tag" onclick="setMarka('TAZEM')">Tazem</button>
+                    <button class="tag" onclick="setMarka('TADPI')">Tadpi</button>
+                </div>
+            </div>
+            <div class="np-sec">
+                <label>Parca:</label>
+                <div class="tag-grid">
+                    <button class="tag" onclick="setParca('INCIK')">Incik</button>
+                    <button class="tag" onclick="setParca('BUT')">But</button>
+                    <button class="tag" onclick="setParca('GOGUS')">Gogus</button>
+                    <button class="tag" onclick="setParca('KANAT')">Kanat</button>
+                    <button class="tag" onclick="setParca('PIRZOLA')">Pirzola</button>
+                    <button class="tag" onclick="setParca('PILIC')">B.Pilic</button>
+                    <button class="tag" onclick="setParca('FILETO')">Fileto</button>
+                    <button class="tag" onclick="setParca('CIGER')">Ciger</button>
+                    <button class="tag" onclick="setParca('TASLIK')">Taslik</button>
+                    <button class="tag" onclick="setParca('BABY')">Baby</button>
+                    <button class="tag" onclick="setParca('DONER')">Doner</button>
+                    <button class="tag" onclick="setParca('SUCUK')">Sucuk</button>
+                    <button class="tag" onclick="setParca('NUGGET')">Nugget</button>
+                    <button class="tag" onclick="setParca('SARMA')">Sarma</button>
+                    <button class="tag" onclick="setParca('KOFTE')">Kofte</button>
+                    <button class="tag" onclick="setParca('SCHNITZEL')">Schnitzel</button>
+                </div>
+            </div>
+        </div>
+        <div class="np-footer">
+            <button class="btn btn-secondary" onclick="closeModal('newproduct-modal')">Iptal</button>
+            <button class="btn btn-success" onclick="saveNewProduct()">Kaydet ve Sepete Ekle</button>
+        </div>
+    </div>
+</div>
+
+<div class="success-msg" id="success-msg"></div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.scan-status {
+    padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; display: none;
+}
+.scan-status.found { display: block; background: #d1fae5; color: #065f46; }
+.scan-status.notfound { display: block; background: #fee2e2; color: #991b1b; }
+.scan-status.scanning { display: block; background: #dbeafe; color: #1e40af; }
+
+.form-row { display: flex; gap: 8px; }
+.input-dim { background: #f1f5f9; }
+.input-sm { padding: 6px 10px; font-size: 13px; }
+
+/* COMPACT MODAL */
+.np-modal {
+    padding: 0 !important; min-width: 580px; max-width: 620px;
+    max-height: 90vh; display: flex; flex-direction: column;
+}
+.np-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; background: var(--sidebar-bg); color: #fff; border-radius: 12px 12px 0 0;
+}
+.np-header h3 { margin: 0; font-size: 15px; }
+.np-info {
+    background: #fffbeb; border-bottom: 1px solid #fbbf24;
+    padding: 6px 16px; font-size: 11px; color: #92400e; display: none;
+}
+.np-info.active { display: block; }
+.np-body {
+    padding: 12px 16px; overflow-y: auto; flex: 1;
+}
+.np-body .form-group { margin-bottom: 6px; }
+.np-body .form-group label { font-size: 11px; font-weight: 600; color: var(--text-light); margin-bottom: 2px; display: block; }
+.np-footer {
+    display: flex; gap: 8px; justify-content: flex-end;
+    padding: 10px 16px; border-top: 1px solid var(--border); background: #f8fafc;
+    border-radius: 0 0 12px 12px;
+}
+
+/* TIP BUTTONS */
+.tip-row { display: flex; gap: 4px; }
+.tip-btn {
+    flex: 1; padding: 6px 0; border: 2px solid var(--border); border-radius: 6px;
+    background: #fff; font-size: 11px; font-weight: 600; cursor: pointer; text-align: center;
+}
+.tip-btn:hover { border-color: var(--primary); }
+.tip-btn.selected { border-color: var(--primary); background: #dbeafe; color: var(--primary); }
+
+/* TAG BUTTONS */
+.np-sec { margin-bottom: 6px; }
+.np-sec label { font-size: 11px; font-weight: 600; color: var(--text-light); margin-bottom: 3px; display: block; }
+.tag-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px;
+    background: #fff; font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.tag:hover { border-color: var(--primary); background: #f0f4ff; }
+.tag.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+</style>
+
+<script>
+let cart = [];
+let scanBuffer = '';
+let scanTimeout = null;
+let selectedMarka = '';
+let selectedParca = '';
+let selectedTip = 'tabak';
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupBarcodeScanner();
+});
+
+// --- BARKOD OKUYUCU ---
+function setupBarcodeScanner() {
+    const input = document.getElementById('search-input');
+
+    // Barkod okuyucular hizli yazar ve Enter ile bitirir
+    // Ayrica document uzerinde keypress dinleyerek input'a odaklanmayi sagla
+    document.addEventListener('keypress', (e) => {
+        // Eger baska bir modal input'undaysak tarama yapma
+        if (e.target.closest('#newproduct-modal') || e.target.closest('#payment-modal')) return;
+
+        // Eger input'a odakli degilse, input'a yonlendir
+        if (document.activeElement !== input) {
+            input.focus();
+        }
+    });
+
+    input.addEventListener('input', (e) => {
+        clearTimeout(scanTimeout);
+        const val = input.value.trim();
+
+        // Barkod okuyucu hizli girer, 50ms icerisinde tum karakterler gelir
+        scanTimeout = setTimeout(() => {
+            // Eger 3+ karakter ve tamamen rakam ise, muhtemelen barkod
+            if (val.length >= 3 && /^\d+$/.test(val)) {
+                handleBarcodeScan(val);
+            }
+        }, 150); // 150ms bekle - barkod okuyucu bu sure icinde tamamlar
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(scanTimeout);
+            const val = input.value.trim();
+            if (!val) return;
+
+            if (/^\d+$/.test(val)) {
+                handleBarcodeScan(val);
+            } else {
+                searchProducts();
+            }
+        }
+    });
+}
+
+async function handleBarcodeScan(barkod) {
+    const input = document.getElementById('search-input');
+    const status = document.getElementById('scan-status');
+
+    status.className = 'scan-status scanning';
+    status.textContent = 'Barkod sorgulanıyor: ' + barkod + '...';
+
+    try {
+        const res = await fetch('/api/barkod/' + encodeURIComponent(barkod));
+        const data = await res.json();
+
+        if (data.found) {
+            // Urun bulundu - sepete ekle
+            const miktar = data.tartili && data.agirlik > 0 ? data.agirlik : 1;
+            addToCart({
+                id: data.id,
+                kod: data.kod,
+                ad: data.ad,
+                fiyat: data.fiyat,
+                birim: data.birim,
+            }, miktar);
+
+            status.className = 'scan-status found';
+            const agirlikInfo = data.tartili ? ` | ${data.agirlik.toFixed(3)} KG` : '';
+            status.textContent = `Bulundu: ${data.ad} - ${data.fiyat.toFixed(2)} TL${agirlikInfo}`;
+        } else {
+            // Urun bulunamadi - Yeni urun ekle modalini ac
+            status.className = 'scan-status notfound';
+            status.textContent = `Barkod bulunamadi: ${barkod} - Yeni urun ekleniyor...`;
+            openNewProductModal(data);
+        }
+    } catch (err) {
+        status.className = 'scan-status notfound';
+        status.textContent = 'Hata: ' + err.message;
+    }
+
+    input.value = '';
+    setTimeout(() => {
+        if (!document.getElementById('newproduct-modal').classList.contains('active')) {
+            input.focus();
+        }
+    }, 100);
+
+    // 5 saniye sonra status'u gizle
+    setTimeout(() => { status.className = 'scan-status'; }, 5000);
+}
+
+// --- YENI URUN MODAL ---
+function openNewProductModal(barkodData) {
+    const modal = document.getElementById('newproduct-modal');
+    const info = document.getElementById('np-info');
+
+    document.getElementById('np-barkod').value = barkodData.barkod;
+
+    if (barkodData.tartili) {
+        document.getElementById('np-urun-kodu').value = barkodData.urun_kodu;
+        document.getElementById('np-agirlik').value = barkodData.agirlik.toFixed(3);
+        info.className = 'np-info active';
+        info.innerHTML = `<strong>Tartili barkod algilandi!</strong><br>
+            Barkod: ${barkodData.barkod} | Urun Kodu: ${barkodData.urun_kodu} | Agirlik: ${barkodData.agirlik.toFixed(3)} KG<br>
+            <small>Format: 28[PPPPP][WWWWW][C] - Pilic sektoru tabak urun barkodu</small>`;
+    } else {
+        document.getElementById('np-urun-kodu').value = barkodData.barkod;
+        document.getElementById('np-agirlik').value = '';
+        info.className = 'np-info active';
+        info.innerHTML = `<strong>Standart barkod</strong><br>Barkod: ${barkodData.barkod}`;
+    }
+
+    // Alanlari temizle
+    document.getElementById('np-urun-adi').value = '';
+    document.getElementById('np-kisa-adi').value = '';
+    document.getElementById('np-fiyat').value = '';
+    document.getElementById('np-birim').value = 'KG';
+    document.getElementById('np-kdv').value = '02';
+    selectedMarka = '';
+    selectedParca = '';
+    selectedTip = 'tabak';
+
+    // Marka/parca butonlarini sifirla
+    document.querySelectorAll('.tag').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tip-btn').forEach(c => {
+        c.classList.toggle('selected', c.dataset.tip === 'tabak');
+    });
+
+    modal.classList.add('active');
+    setTimeout(() => document.getElementById('np-fiyat').focus(), 200);
+}
+
+function selectUrunTipi(el) {
+    document.querySelectorAll('.tip-btn').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedTip = el.dataset.tip;
+    buildProductName();
+}
+
+function setMarka(marka) {
+    selectedMarka = marka;
+    document.querySelectorAll('.np-sec')[0].querySelectorAll('.tag').forEach(b => {
+        b.classList.toggle('active', b.textContent.trim().toUpperCase() === marka);
+    });
+    buildProductName();
+}
+
+function setParca(parca) {
+    selectedParca = parca;
+    document.querySelectorAll('.np-sec')[1].querySelectorAll('.tag').forEach(b => {
+        b.classList.toggle('active', b.textContent.trim().toUpperCase() === parca);
+    });
+    buildProductName();
+}
+
+function buildProductName() {
+    if (!selectedMarka && !selectedParca) return;
+
+    const tipMap = { tabak: 'TABAK', poset: 'POSET', dokme: 'DOKME', koli: 'KOLI' };
+    const tipStr = tipMap[selectedTip] || '';
+
+    const fullName = [selectedMarka, tipStr, selectedParca].filter(Boolean).join(' ');
+    document.getElementById('np-urun-adi').value = fullName;
+    document.getElementById('np-kisa-adi').value = fullName.substring(0, 20);
+}
+
+async function saveNewProduct() {
+    const barkod = document.getElementById('np-barkod').value;
+    const urunKodu = document.getElementById('np-urun-kodu').value.trim();
+    const urunAdi = document.getElementById('np-urun-adi').value.trim();
+    const kisaAdi = document.getElementById('np-kisa-adi').value.trim();
+    const birim = document.getElementById('np-birim').value;
+    const kdvTipi = document.getElementById('np-kdv').value;
+    const fiyat = parseFloat(document.getElementById('np-fiyat').value) || 0;
+    const agirlik = parseFloat(document.getElementById('np-agirlik').value) || 0;
+
+    if (!urunAdi) { alert('Urun adi zorunludur!'); return; }
+    if (!urunKodu) { alert('Urun kodu zorunludur!'); return; }
+    if (fiyat <= 0) { alert('Fiyat giriniz!'); return; }
+
+    try {
+        const res = await fetch('/api/urun_ekle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                barkod, urun_kodu: urunKodu, urun_adi: urunAdi,
+                kisa_adi: kisaAdi, birim, kdv_tipi: kdvTipi, fiyat
+            })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+            closeModal('newproduct-modal');
+            const miktar = data.tartili && agirlik > 0 ? agirlik : 1;
+            addToCart({
+                id: data.id,
+                kod: data.kod,
+                ad: data.ad,
+                fiyat: data.fiyat,
+                birim: data.birim,
+            }, miktar);
+
+            showSuccess(`Yeni urun eklendi: ${data.ad} - ${data.fiyat.toFixed(2)} TL`);
+        } else {
+            alert('Hata: ' + data.error);
+        }
+    } catch (err) {
+        alert('Hata: ' + err.message);
+    }
+}
+
+
+function searchProducts() {
+    const val = document.getElementById('search-input').value.trim();
+    if (val) handleBarcodeScan(val);
+}
+
+
+// --- SEPET ---
+function addToCart(product, miktar) {
+    miktar = miktar || 1;
+    const existing = cart.find(c => c.id === product.id);
+    if (existing) {
+        existing.miktar += miktar;
+    } else {
+        cart.push({ ...product, miktar: miktar, fiyat: product.fiyat });
+    }
+    renderCart();
+}
+
+function renderCart() {
+    document.getElementById('cart-items').innerHTML = cart.map((item, i) => `
+        <div class="cart-item">
+            <div class="ci-name">${item.ad}</div>
+            <input class="ci-qty" type="number" value="${item.miktar.toFixed(3)}" min="0.001" step="0.001"
+                onchange="updateQty(${i}, this.value)">
+            <div class="ci-price">${(item.miktar * item.fiyat).toFixed(2)} TL</div>
+            <button class="ci-remove" onclick="removeItem(${i})">x</button>
+        </div>
+    `).join('');
+
+    const total = cart.reduce((sum, item) => sum + item.miktar * item.fiyat, 0);
+    document.getElementById('cart-total').textContent = formatMoney(total);
+    document.getElementById('cart-count').textContent = cart.length;
+}
+
+function updateQty(index, val) {
+    const qty = parseFloat(val);
+    if (qty <= 0) { cart.splice(index, 1); }
+    else { cart[index].miktar = qty; }
+    renderCart();
+}
+
+function removeItem(index) {
+    cart.splice(index, 1);
+    renderCart();
+}
+
+function clearCart() {
+    if (cart.length && confirm('Sepeti temizlemek istediginize emin misiniz?')) {
+        cart = [];
+        renderCart();
+    }
+}
+
+
+// --- ODEME ---
+function completeSale() {
+    if (!cart.length) { alert('Sepet bos!'); return; }
+    document.getElementById('pay-total').value = formatMoney(
+        cart.reduce((s, i) => s + i.miktar * i.fiyat, 0)
+    );
+    document.getElementById('payment-modal').classList.add('active');
+}
+
+document.getElementById('pay-customer').addEventListener('input', async function() {
+    const q = this.value.trim();
+    if (q.length < 2) { document.getElementById('customer-results').innerHTML = ''; return; }
+    const data = await fetch('/api/musteriler?q=' + encodeURIComponent(q)).then(r => r.json());
+    document.getElementById('customer-results').innerHTML = data.slice(0, 5).map(m =>
+        `<div style="padding:6px;cursor:pointer;border-bottom:1px solid #eee"
+              onclick="selectCustomer(${m.id},'${m.adi.replace(/'/g,"\\'")}','${m.soyadi.replace(/'/g,"\\'")}')">
+            ${m.adi} ${m.soyadi} - ${m.telefon}
+        </div>`
+    ).join('');
+});
+
+function selectCustomer(id, adi, soyadi) {
+    document.getElementById('pay-customer-id').value = id;
+    document.getElementById('pay-customer-name').value = adi;
+    document.getElementById('pay-customer-surname').value = soyadi;
+    document.getElementById('pay-customer').value = adi + ' ' + soyadi;
+    document.getElementById('customer-results').innerHTML = '';
+}
+
+async function confirmPayment() {
+    const payload = {
+        kalemler: cart.map(c => ({ stok_id: c.id, miktar: c.miktar, fiyat: c.fiyat })),
+        odeme_sekli: document.getElementById('pay-method').value,
+        musteri_id: parseInt(document.getElementById('pay-customer-id').value) || 0,
+        musteri_adi: document.getElementById('pay-customer-name').value,
+        musteri_soyadi: document.getElementById('pay-customer-surname').value,
+    };
+
+    const res = await fetch('/api/satis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(r => r.json());
+
+    if (res.ok) {
+        closeModal('payment-modal');
+        cart = [];
+        renderCart();
+        showSuccess(`Satis tamamlandi! Fis No: ${res.fis_no} - Tutar: ${formatMoney(res.toplam)}`);
+        document.getElementById('pay-customer-id').value = '0';
+        document.getElementById('pay-customer-name').value = '';
+        document.getElementById('pay-customer-surname').value = '';
+        document.getElementById('pay-customer').value = '';
+        document.getElementById('search-input').focus();
+    } else {
+        alert('Hata: ' + (res.error || 'Bilinmeyen hata'));
+    }
+}
+
+
+// --- YARDIMCI ---
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+    document.getElementById('search-input').focus();
+}
+
+function showSuccess(text) {
+    const msg = document.getElementById('success-msg');
+    msg.textContent = text;
+    msg.style.display = 'block';
+    setTimeout(() => msg.style.display = 'none', 4000);
+}
+</script>
+{% endblock %}

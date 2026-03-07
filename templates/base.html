@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}POS Sistemi{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">POS</div>
+        <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+            <span class="icon">&#9632;</span> Ana Sayfa
+        </a>
+        <a href="/pos" class="nav-item {% if request.path == '/pos' %}active{% endif %}">
+            <span class="icon">&#9654;</span> Satis
+        </a>
+        <a href="/urunler" class="nav-item {% if request.path == '/urunler' %}active{% endif %}">
+            <span class="icon">&#9642;</span> Urunler
+        </a>
+        <a href="/musteriler" class="nav-item {% if request.path == '/musteriler' %}active{% endif %}">
+            <span class="icon">&#9830;</span> Musteriler
+        </a>
+        <a href="/raporlar" class="nav-item {% if request.path == '/raporlar' %}active{% endif %}">
+            <span class="icon">&#9733;</span> Raporlar
+        </a>
+    </nav>
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

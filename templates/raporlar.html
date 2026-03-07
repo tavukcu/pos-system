@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Raporlar - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Raporlar</h1>
+</div>
+
+<div class="grid grid-3">
+    <div class="stat-card">
+        <div class="label">Bugunun Cirosu</div>
+        <div class="value success" id="r-today-ciro">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Bugunun Islem Adedi</div>
+        <div class="value primary" id="r-today-count">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Ortalama Fis Tutari</div>
+        <div class="value warning" id="r-today-avg">--</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>
+        Aylik Ciro -
+        <select id="yil-select" onchange="loadAylik()" style="width:auto;display:inline-block;padding:4px 8px">
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+        </select>
+    </h2>
+    <div class="chart-container" id="chart-rapor" style="height:250px;margin-bottom:30px"></div>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Ay</th><th>Islem Adedi</th><th>Toplam Ciro</th><th>Ort. Fis</th></tr></thead>
+            <tbody id="aylik-table"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h2>En Cok Satan Urunler</h2>
+        <div class="form-group">
+            <select id="gun-select" onchange="loadTopProducts()" style="width:auto;padding:4px 8px">
+                <option value="7">Son 7 Gun</option>
+                <option value="30" selected>Son 30 Gun</option>
+                <option value="90">Son 90 Gun</option>
+                <option value="365">Son 1 Yil</option>
+            </select>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>#</th><th>Urun</th><th>Miktar</th><th>Tutar</th></tr></thead>
+                <tbody id="top-table"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Son Satislar</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Fis</th><th>Tarih</th><th>Tutar</th></tr></thead>
+                <tbody id="son-satislar"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const aylar = ['Ocak','Subat','Mart','Nisan','Mayis','Haziran','Temmuz','Agustos','Eylul','Ekim','Kasim','Aralik'];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const daily = await fetch('/api/rapor/gunluk?tarih=' + today).then(r => r.json());
+    document.getElementById('r-today-ciro').textContent = formatMoney(daily.toplam_ciro);
+    document.getElementById('r-today-count').textContent = daily.islem_adedi;
+    document.getElementById('r-today-avg').textContent = formatMoney(daily.ort_fis);
+
+    loadAylik();
+    loadTopProducts();
+    loadSonSatislar();
+});
+
+async function loadAylik() {
+    const yil = document.getElementById('yil-select').value;
+    const data = await fetch('/api/rapor/aylik?yil=' + yil).then(r => r.json());
+
+    // Chart
+    const chartEl = document.getElementById('chart-rapor');
+    chartEl.innerHTML = '';
+    const maxCiro = Math.max(...data.map(m => m.toplam_ciro), 1);
+    data.forEach(m => {
+        const pct = (m.toplam_ciro / maxCiro) * 220;
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar';
+        bar.style.height = Math.max(pct, 10) + 'px';
+        bar.innerHTML = `<span class="bar-value">${formatShort(m.toplam_ciro)}</span><span class="bar-label">${aylar[m.ay-1].substring(0,3)}</span>`;
+        chartEl.appendChild(bar);
+    });
+
+    // Table
+    document.getElementById('aylik-table').innerHTML = data.map(m => `
+        <tr>
+            <td><strong>${aylar[m.ay-1]}</strong></td>
+            <td>${m.islem_adedi}</td>
+            <td><strong>${formatMoney(m.toplam_ciro)}</strong></td>
+            <td>${formatMoney(m.ort_fis)}</td>
+        </tr>
+    `).join('');
+}
+
+async function loadTopProducts() {
+    const gun = document.getElementById('gun-select').value;
+    const data = await fetch('/api/rapor/en_cok_satan?gun=' + gun).then(r => r.json());
+    document.getElementById('top-table').innerHTML = data.map((p, i) => `
+        <tr>
+            <td>${i + 1}</td>
+            <td><strong>${p.urun}</strong></td>
+            <td>${p.miktar.toFixed(1)}</td>
+            <td>${formatMoney(p.tutar)}</td>
+        </tr>
+    `).join('');
+}
+
+async function loadSonSatislar() {
+    const data = await fetch('/api/rapor/son_satislar').then(r => r.json());
+    document.getElementById('son-satislar').innerHTML = data.slice(0, 20).map(s => `
+        <tr>
+            <td>${s.fis_no}</td>
+            <td>${s.tarih}</td>
+            <td><strong>${formatMoney(s.tutar)}</strong></td>
+        </tr>
+    `).join('');
+}
+</script>
+{% endblock %}
