@@ -1,9 +1,14 @@
 from flask import Flask, render_template, request, jsonify
 from config import query, execute, get_connection
 from datetime import datetime, date
+import traceback
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
+
+@app.errorhandler(Exception)
+def handle_error(e):
+    return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 # --- HELPERS ---
 
