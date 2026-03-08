@@ -7,12 +7,28 @@ import pyodbc
 import requests
 import json
 import time
+import logging
+import os
 from datetime import datetime, date
+from decimal import Decimal
+
+# Log dosyasi ayarla
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sync.log')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+log = logging.info
 
 API_URL = "https://pos-app-production-f14d.up.railway.app"
 SECRET = "pos-migrate-2024"
 BATCH_SIZE = 500
-SYNC_INTERVAL = 300  # 5 dakika (saniye)
+SYNC_INTERVAL = 15  # 15 saniye
 
 mssql_conn_str = 'DRIVER={SQL Server};SERVER=(local);DATABASE=BUSINESS2023;UID=sa;PWD=Ceddan1234;'
 
@@ -28,7 +44,9 @@ def serialize(val):
         return val.isoformat()
     if isinstance(val, bool):
         return val
-    return float(val) if isinstance(val, (int, float)) else str(val)
+    if isinstance(val, (int, float, Decimal)):
+        return float(val)
+    return str(val)
 
 def get_max_ids():
     """Railway'deki her tablonun max ID'sini al."""
@@ -36,7 +54,7 @@ def get_max_ids():
         r = requests.post(f"{API_URL}/api/sync/max-id", json={'secret': SECRET}, timeout=30)
         return r.json()
     except Exception as e:
-        print(f"  Max ID alinamadi: {e}")
+        log(f"  Max ID alinamadi: {e}")
         return None
 
 def upload_rows(table, cols, rows):
@@ -56,7 +74,7 @@ def upload_rows(table, cols, rows):
             result = r.json()
             uploaded += result.get('inserted', 0)
         except Exception as e:
-            print(f"  HATA batch {i}: {e}")
+            log(f"  HATA batch {i}: {e}")
     return uploaded
 
 def sync_table(conn, table, id_col, max_id, sql_template):
@@ -68,16 +86,16 @@ def sync_table(conn, table, id_col, max_id, sql_template):
     if not rows:
         return 0
     uploaded = upload_rows(table, cols, rows)
-    print(f"  {table}: {uploaded} yeni kayit aktarildi")
+    log(f"  {table}: {uploaded} yeni kayit aktarildi")
     return uploaded
 
 def do_sync():
     """Tek bir senkronizasyon dongusunu calistir."""
-    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Senkronizasyon basliyor...")
+    log("Senkronizasyon basliyor...")
 
     max_ids = get_max_ids()
     if max_ids is None:
-        print("  Railway'e ulasilamadi, sonraki dongude tekrar denenecek.")
+        log("  Railway'e ulasilamadi, sonraki dongude tekrar denenecek.")
         return
 
     conn = get_mssql()
@@ -129,20 +147,19 @@ def do_sync():
     conn.close()
 
     if total == 0:
-        print("  Yeni kayit yok.")
+        log("  Yeni kayit yok.")
     else:
-        print(f"  Toplam {total} yeni kayit aktarildi.")
+        log(f"  Toplam {total} yeni kayit aktarildi.")
 
 if __name__ == '__main__':
-    print("=" * 50)
-    print("Karpin -> Railway Otomatik Senkronizasyon")
-    print(f"Her {SYNC_INTERVAL // 60} dakikada bir calisacak")
-    print("Durdurmak icin Ctrl+C")
-    print("=" * 50)
+    log("=" * 50)
+    log("Karpin -> Railway Otomatik Senkronizasyon baslatildi")
+    log(f"Her {SYNC_INTERVAL} saniyede bir calisacak")
+    log("=" * 50)
 
     while True:
         try:
             do_sync()
         except Exception as e:
-            print(f"  HATA: {e}")
+            log(f"  HATA: {e}")
         time.sleep(SYNC_INTERVAL)

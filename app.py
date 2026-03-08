@@ -639,9 +639,34 @@ def api_migrate_data():
     cols = request.json.get('cols', [])
     if not table or not rows:
         return jsonify({'error': 'table ve rows gerekli'}), 400
-    col_names = ', '.join([c.lower() for c in cols])
+
+    table_lower = table.lower()
+    col_list = [c.lower() for c in cols]
+    col_names = ', '.join(col_list)
     placeholders = ', '.join(['%s'] * len(cols))
-    sql = f'INSERT INTO {table.lower()} ({col_names}) VALUES ({placeholders})'
+
+    # Primary key mapping for UPSERT
+    pk_map = {
+        'tbalisveris': 'nalisverisid',
+        'tbstok': 'nstokid',
+        'tbstokbarkodu': None,
+        'tbstokfiyati': None,
+        'tbstoksinifi': None,
+        'tbstokfisidetayi': 'nislemid',
+        'tbodeme': 'nodemeid',
+        'tbmusteri': 'nmusteriid',
+    }
+    pk = pk_map.get(table_lower)
+
+    if pk and pk in col_list:
+        # UPSERT: INSERT ON CONFLICT UPDATE
+        update_cols = [c for c in col_list if c != pk]
+        update_set = ', '.join([f'{c} = EXCLUDED.{c}' for c in update_cols])
+        sql = (f'INSERT INTO {table_lower} ({col_names}) VALUES ({placeholders}) '
+               f'ON CONFLICT ({pk}) DO UPDATE SET {update_set}')
+    else:
+        sql = f'INSERT INTO {table_lower} ({col_names}) VALUES ({placeholders})'
+
     conn = get_connection()
     cursor = conn.cursor()
     count = 0
