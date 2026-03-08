@@ -83,8 +83,9 @@ def do_sync():
     conn = get_mssql()
     total = 0
 
-    # Alisveris (satislar)
-    total += sync_table(conn, 'tbAlisVeris', 'nAlisverisID', max_ids.get('tbAlisVeris', 0),
+    # Alisveris (satislar) - tarih bazli
+    max_dt = max_ids.get('tbAlisVeris') or '2000-01-01'
+    total += sync_table(conn, 'tbAlisVeris', 'dteKayitTarihi', max_dt,
         "SELECT nAlisverisID, sFisTipi, dteFaturaTarihi, nGirisCikis, lFaturaNo, "
         "nMusteriID, sMagaza, sKasiyerRumuzu, sAlisverisYapanAdi, sAlisverisYapanSoyadi, "
         "lToplamMiktar, lMalBedeli, lMalIskontoTutari, nDipIskontoYuzdesi, lDipIskontoTutari, "
@@ -93,15 +94,16 @@ def do_sync():
         "nKdvOrani5, lKdvMatrahi5, lKdv5, lPesinat, nVadeFarkiYuzdesi, "
         "nVadeKdvOrani, lVadeKdvMatrahi, lVadeKdv, lVadeFarki, lNetTutar, "
         "sHareketTipi, bMuhasebeyeIslendimi, sKullaniciAdi, dteKayitTarihi "
-        "FROM tbAlisVeris WHERE nAlisverisID > ? AND lNetTutar < 10000000"
+        "FROM tbAlisVeris WHERE dteKayitTarihi > ? AND lNetTutar < 10000000"
     )
 
-    # Odemeler
-    total += sync_table(conn, 'tbOdeme', 'nOdemeID', max_ids.get('tbOdeme', 0),
+    # Odemeler - tarih bazli
+    max_dt = max_ids.get('tbOdeme') or '2000-01-01'
+    total += sync_table(conn, 'tbOdeme', 'dteKayitTarihi', max_dt,
         "SELECT nOdemeID, nAlisverisID, sOdemeSekli, nOdemeKodu, sKasiyerRumuzu, "
         "dteOdemeTarihi, dteValorTarihi, lOdemeTutar, sDovizCinsi, lDovizTutar, "
         "lMakbuzNo, lOdemeNo, nTaksitID, nIadeAlisverisID, bMuhasebeyeIslendimi, "
-        "nKasaNo, sKullaniciAdi, dteKayitTarihi, sMagaza FROM tbOdeme WHERE nOdemeID > ?"
+        "nKasaNo, sKullaniciAdi, dteKayitTarihi, sMagaza FROM tbOdeme WHERE dteKayitTarihi > ?"
     )
 
     # Stok hareketleri

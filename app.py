@@ -659,21 +659,21 @@ def api_sync_max_id():
     cursor = conn.cursor()
     result = {}
     tables = {
-        'tbAlisVeris': 'nAlisverisID',
-        'tbOdeme': 'nOdemeID',
-        'tbStokFisiDetayi': 'nIslemID',
-        'tbStok': 'nStokID',
-        'tbStokBarkodu': 'nStokID',
-        'tbStokFiyati': 'nStokID',
-        'tbMusteri': 'nMusteriID',
+        'tbAlisVeris': 'dtekayittarihi',
+        'tbOdeme': 'dtekayittarihi',
+        'tbStokFisiDetayi': 'nislemid',
+        'tbMusteri': 'nmusteriid',
     }
     for table, col in tables.items():
         try:
-            cursor.execute(f'SELECT MAX({col.lower()}) FROM {table.lower()}')
+            cursor.execute(f'SELECT MAX({col}) FROM {table.lower()}')
             val = cursor.fetchone()[0]
-            result[table] = val if val is not None else 0
+            if val is not None:
+                result[table] = val.isoformat() if hasattr(val, 'isoformat') else val
+            else:
+                result[table] = None
         except:
-            result[table] = 0
+            result[table] = None
     conn.close()
     return jsonify(result)
 
