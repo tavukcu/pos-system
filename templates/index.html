@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const salesEl = document.getElementById('recent-sales');
     sales.slice(0, 15).forEach(s => {
         const tipBadge = s.fis_tipi === 'P' ? '<span class="badge badge-success">Pesin</span>' : '<span class="badge badge-warning">Kredi</span>';
-        salesEl.innerHTML += `<tr><td>${s.fis_no}</td><td>${s.tarih}</td><td>${tipBadge}</td><td>${s.musteri || '-'}</td><td><strong>${formatMoney(s.tutar)}</strong></td></tr>`;
+        salesEl.innerHTML += `<tr style="cursor:pointer" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')"><td>${s.fis_no}</td><td>${s.tarih}</td><td>${tipBadge}</td><td>${s.musteri || '-'}</td><td><strong>${formatMoney(s.tutar)}</strong></td></tr>`;
     });
 });
 </script>

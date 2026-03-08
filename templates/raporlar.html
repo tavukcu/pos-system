@@ -130,7 +130,7 @@ async function loadTopProducts() {
 async function loadSonSatislar() {
     const data = await fetch('/api/rapor/son_satislar').then(r => r.json());
     document.getElementById('son-satislar').innerHTML = data.slice(0, 20).map(s => `
-        <tr>
+        <tr style="cursor:pointer" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')">
             <td>${s.fis_no}</td>
             <td>${s.tarih}</td>
             <td><strong>${formatMoney(s.tutar)}</strong></td>

@@ -489,6 +489,23 @@ def api_rapor_son_satislar():
         'tutar': float(r['lNetTutar']),
     } for r in rows])
 
+@app.route('/api/rapor/satis_detay')
+def api_rapor_satis_detay():
+    alisveris_id = request.args.get('id', '')
+    rows = query(
+        "SELECT d.lCikisMiktar1, d.lCikisFiyat, d.lCikisTutar, s.sAciklama "
+        "FROM tbStokFisiDetayi d "
+        "JOIN tbStok s ON d.nStokID = s.nStokID "
+        "WHERE d.nAlisverisID = ? AND d.nGirisCikis = 3",
+        [alisveris_id]
+    )
+    return jsonify([{
+        'urun': (r['sAciklama'] or '').strip(),
+        'miktar': float(r['lCikisMiktar1']),
+        'fiyat': float(r['lCikisFiyat']),
+        'tutar': float(r['lCikisTutar']),
+    } for r in rows])
+
 
 # --- API: MIGRATION (uzaktan veri aktarimi) ---
 
