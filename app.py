@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify
-from config import query, execute, get_connection
+from config import query, execute, get_connection, adapt_sql
 from datetime import datetime, date
 import traceback
 
@@ -222,7 +222,7 @@ def api_urun_ekle():
     try:
         # tbStok kaydı
         cursor.execute(
-            "INSERT INTO tbStok (nStokID, sKodu, sAciklama, sKisaAdi, nStokTipi, "
+            adapt_sql("INSERT INTO tbStok (nStokID, sKodu, sAciklama, sKisaAdi, nStokTipi, "
             "sBirimCinsi1, nIskontoYuzdesi, sKdvTipi, nTeminSuresi, "
             "lAsgariMiktar, lAzamiMiktar, sOzelNot, nFiyatlandirma, sModel, "
             "sKullaniciAdi, dteKayitTarihi, bEksiyeDusulebilirmi, sDefaultAsortiTipi, "
@@ -230,15 +230,15 @@ def api_urun_ekle():
             "nPrim, nEn, nBoy, nYukseklik, nHacim, nAgirlik, sDovizCinsi, "
             "sAlisKdvTipi, nButce, nKarlilik, sUlke) "
             "VALUES (?, ?, ?, ?, 0, ?, 0, ?, 0, 0, 0, '', 0, '', "
-            "'POS', ?, 0, '', 0, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 'TL', ?, 0, 0, '')",
+            "'POS', ?, 0, '', 0, 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 'TL', ?, 0, 0, '')"),
             [stok_id, urun_kodu, urun_adi, kisa_adi, birim, kdv_tipi, now, kdv_tipi]
         )
 
         # tbStokBarkodu kaydı
         cursor.execute(
-            "INSERT INTO tbStokBarkodu (nStokID, sBarkod, nFirmaID, sKarsiStokKodu, "
+            adapt_sql("INSERT INTO tbStokBarkodu (nStokID, sBarkod, nFirmaID, sKarsiStokKodu, "
             "sKarsiStokAciklama, sBirimCinsi, lBirimMiktar) "
-            "VALUES (?, ?, 0, '', '', ?, 0)",
+            "VALUES (?, ?, 0, '', '', ?, 0)"),
             [stok_id, barkod, birim]
         )
 
@@ -246,28 +246,28 @@ def api_urun_ekle():
         parsed = parse_tabak_barkod(barkod)
         if parsed['tartili'] and parsed['urun_kodu'] != barkod:
             cursor.execute(
-                "INSERT INTO tbStokBarkodu (nStokID, sBarkod, nFirmaID, sKarsiStokKodu, "
+                adapt_sql("INSERT INTO tbStokBarkodu (nStokID, sBarkod, nFirmaID, sKarsiStokKodu, "
                 "sKarsiStokAciklama, sBirimCinsi, lBirimMiktar) "
-                "VALUES (?, ?, 0, '', '', ?, 0)",
+                "VALUES (?, ?, 0, '', '', ?, 0)"),
                 [stok_id, parsed['urun_kodu'], birim]
             )
 
         # tbStokFiyati kaydı (satis fiyati)
         if fiyat > 0:
             cursor.execute(
-                "INSERT INTO tbStokFiyati (nStokID, sFiyatTipi, lFiyat, "
+                adapt_sql("INSERT INTO tbStokFiyati (nStokID, sFiyatTipi, lFiyat, "
                 "dteFiyatTespitTarihi, sKullaniciAdi, dteKayitTarihi) "
-                "VALUES (?, '1', ?, ?, 'POS', ?)",
+                "VALUES (?, '1', ?, ?, 'POS', ?)"),
                 [stok_id, fiyat, now, now]
             )
 
         # tbStokSinifi kaydı (bos sinif)
         cursor.execute(
-            "INSERT INTO tbStokSinifi (nStokID, sSinifKodu1, sSinifKodu2, sSinifKodu3, "
+            adapt_sql("INSERT INTO tbStokSinifi (nStokID, sSinifKodu1, sSinifKodu2, sSinifKodu3, "
             "sSinifKodu4, sSinifKodu5, sSinifKodu6, sSinifKodu7, sSinifKodu8, "
             "sSinifKodu9, sSinifKodu10, sSinifKodu11, sSinifKodu12, sSinifKodu13, "
             "sSinifKodu14, sSinifKodu15) "
-            "VALUES (?, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '')",
+            "VALUES (?, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '')"),
             [stok_id]
         )
 
@@ -316,7 +316,7 @@ def api_satis():
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO tbAlisVeris (nAlisverisID, sFisTipi, dteFaturaTarihi, "
+            adapt_sql("INSERT INTO tbAlisVeris (nAlisverisID, sFisTipi, dteFaturaTarihi, "
             "nGirisCikis, lFaturaNo, nMusteriID, sMagaza, sKasiyerRumuzu, "
             "sAlisverisYapanAdi, sAlisverisYapanSoyadi, lToplamMiktar, lMalBedeli, "
             "lMalIskontoTutari, nDipIskontoYuzdesi, lDipIskontoTutari, "
@@ -328,7 +328,7 @@ def api_satis():
             "sKullaniciAdi, dteKayitTarihi) "
             "VALUES (?, ?, ?, 3, ?, ?, 'D001', '', ?, ?, ?, ?, "
             "0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "
-            "0, 0, 0, 0, 0, 0, ?, '', 0, 'POS', ?)",
+            "0, 0, 0, 0, 0, 0, ?, '', 0, 'POS', ?)"),
             [alisveris_id, fis_tipi, now, fis_no, musteri_id,
              musteri_adi, musteri_soyadi, toplam_miktar, toplam_tutar,
              toplam_tutar, now]
@@ -340,7 +340,7 @@ def api_satis():
             fiyat = float(k['fiyat'])
             tutar = miktar * fiyat
             cursor.execute(
-                "INSERT INTO tbStokFisiDetayi (nIslemID, nStokID, dteIslemTarihi, "
+                adapt_sql("INSERT INTO tbStokFisiDetayi (nIslemID, nStokID, dteIslemTarihi, "
                 "nFirmaID, nMusteriID, sFisTipi, dteFisTarihi, lFisNo, nGirisCikis, "
                 "sDepo, lReyonFisNo, sStokIslem, sKasiyerRumuzu, sSaticiRumuzu, "
                 "sOdemeKodu, dteIrsaliyeTarihi, lIrsaliyeNo, "
@@ -354,7 +354,7 @@ def api_satis():
                 "nAlisverisID, nStokFisiID, nIrsaliyeFisiID) "
                 "VALUES (?, ?, ?, 0, ?, ?, ?, ?, 3, 'D001', 0, '', '', '', "
                 "?, ?, 0, 0, 0, 0, 0, ?, 0, ?, ?, '', 0, 0, 0, 0, 0, 0, 0, "
-                "'TL', 0, 0, 0, 0, '', 0, 0, '', '', 0, 'POS', ?, ?, 0, 0)",
+                "'TL', 0, 0, 0, 0, '', 0, 0, '', '', 0, 'POS', ?, ?, 0, 0)"),
                 [islem_id, k['stok_id'], now, musteri_id, fis_tipi, now,
                  fis_no, odeme_sekli, now, miktar, fiyat, tutar, now, alisveris_id]
             )
@@ -362,13 +362,13 @@ def api_satis():
 
         odeme_id = get_next_odeme_id()
         cursor.execute(
-            "INSERT INTO tbOdeme (nOdemeID, nAlisverisID, sOdemeSekli, "
+            adapt_sql("INSERT INTO tbOdeme (nOdemeID, nAlisverisID, sOdemeSekli, "
             "nOdemeKodu, sKasiyerRumuzu, dteOdemeTarihi, dteValorTarihi, "
             "lOdemeTutar, sDovizCinsi, lDovizTutar, lMakbuzNo, lOdemeNo, "
             "nTaksitID, nIadeAlisverisID, bMuhasebeyeIslendimi, nKasaNo, "
             "sKullaniciAdi, dteKayitTarihi, sMagaza) "
             "VALUES (?, ?, ?, 0, '', ?, ?, ?, 'TL', 0, 0, 0, '', '', 0, 1, "
-            "'POS', ?, 'D001')",
+            "'POS', ?, 'D001')"),
             [odeme_id, alisveris_id, odeme_sekli, now, now, toplam_tutar, now]
         )
 
