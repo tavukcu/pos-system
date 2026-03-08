@@ -651,5 +651,32 @@ def api_migrate_index():
     return jsonify({'ok': True, 'msg': 'Indexler olusturuldu'})
 
 
+@app.route('/api/sync/max-id', methods=['POST'])
+def api_sync_max_id():
+    if request.json.get('secret') != MIGRATE_SECRET:
+        return jsonify({'error': 'Unauthorized'}), 401
+    conn = get_connection()
+    cursor = conn.cursor()
+    result = {}
+    tables = {
+        'tbAlisVeris': 'nAlisverisID',
+        'tbOdeme': 'nOdemeID',
+        'tbStokFisiDetayi': 'nIslemID',
+        'tbStok': 'nStokID',
+        'tbStokBarkodu': 'nStokID',
+        'tbStokFiyati': 'nStokID',
+        'tbMusteri': 'nMusteriID',
+    }
+    for table, col in tables.items():
+        try:
+            cursor.execute(f'SELECT MAX({col.lower()}) FROM {table.lower()}')
+            val = cursor.fetchone()[0]
+            result[table] = val if val is not None else 0
+        except:
+            result[table] = 0
+    conn.close()
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

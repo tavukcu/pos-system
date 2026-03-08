@@ -83,7 +83,7 @@ upload_table('tbStokFiyati',
 upload_table('tbStokSinifi', "SELECT * FROM tbStokSinifi")
 
 upload_table('tbMusteri',
-    "SELECT nMusteriID, sAdi, sSoyadi, sTelefon1, sIl FROM tbMusteri"
+    "SELECT nMusteriID, sAdi, sSoyadi, sGSM AS sTelefon1, sEvIl AS sIl FROM tbMusteri"
 )
 
 upload_table('tbAlisVeris',
