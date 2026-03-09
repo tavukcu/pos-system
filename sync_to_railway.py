@@ -194,7 +194,12 @@ def sync_table(conn, table, id_col, max_id, sql_template):
     return uploaded
 
 def do_sync():
-    """Tek bir senkronizasyon dongusunu calistir."""
+    """Tek bir senkronizasyon dongusunu calistir.
+
+    Karpin POS once satisi 0 tutarla kaydeder, sonra gunceller.
+    Bu yuzden sadece yeni kayitlari degil, son 10 dakikadaki kayitlari da
+    tekrar gondeririz. UPSERT sayesinde mevcut kayitlar guncellenir.
+    """
     max_ids = get_max_ids()
     if max_ids is None:
         return
@@ -202,7 +207,7 @@ def do_sync():
     conn = get_mssql()
     total = 0
 
-    # Alisveris (satislar) - tarih bazli
+    # Alisveris (satislar) - tarih bazli, 10 dk geriye bak
     max_dt = max_ids.get('tbAlisVeris') or '2000-01-01'
     total += sync_table(conn, 'tbAlisVeris', 'dteKayitTarihi', max_dt,
         "SELECT nAlisverisID, sFisTipi, dteFaturaTarihi, nGirisCikis, lFaturaNo, "
@@ -213,19 +218,21 @@ def do_sync():
         "nKdvOrani5, lKdvMatrahi5, lKdv5, lPesinat, nVadeFarkiYuzdesi, "
         "nVadeKdvOrani, lVadeKdvMatrahi, lVadeKdv, lVadeFarki, lNetTutar, "
         "sHareketTipi, bMuhasebeyeIslendimi, sKullaniciAdi, dteKayitTarihi "
-        "FROM tbAlisVeris WHERE dteKayitTarihi > ? AND lNetTutar < 10000000"
+        "FROM tbAlisVeris WHERE dteKayitTarihi >= DATEADD(MINUTE, -10, ?) "
+        "AND lNetTutar < 10000000"
     )
 
-    # Odemeler - tarih bazli
+    # Odemeler - tarih bazli, 10 dk geriye bak
     max_dt = max_ids.get('tbOdeme') or '2000-01-01'
     total += sync_table(conn, 'tbOdeme', 'dteKayitTarihi', max_dt,
         "SELECT nOdemeID, nAlisverisID, sOdemeSekli, nOdemeKodu, sKasiyerRumuzu, "
         "dteOdemeTarihi, dteValorTarihi, lOdemeTutar, sDovizCinsi, lDovizTutar, "
         "lMakbuzNo, lOdemeNo, nTaksitID, nIadeAlisverisID, bMuhasebeyeIslendimi, "
-        "nKasaNo, sKullaniciAdi, dteKayitTarihi, sMagaza FROM tbOdeme WHERE dteKayitTarihi > ?"
+        "nKasaNo, sKullaniciAdi, dteKayitTarihi, sMagaza FROM tbOdeme "
+        "WHERE dteKayitTarihi >= DATEADD(MINUTE, -10, ?)"
     )
 
-    # Stok hareketleri - integer bazli
+    # Stok hareketleri - integer bazli (ID bazli, geriye bakma gerekli degil)
     max_islem = max_ids.get('tbStokFisiDetayi', 0) or 0
     total += sync_table(conn, 'tbStokFisiDetayi', 'nIslemID', max_islem,
         "SELECT nIslemID, nStokID, dteIslemTarihi, nFirmaID, nMusteriID, sFisTipi, "
