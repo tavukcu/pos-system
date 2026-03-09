@@ -615,6 +615,20 @@ CREATE INDEX IF NOT EXISTS idx_sfd_tarih ON tbstokfisidetayi (dteislemtarihi);
 CREATE INDEX IF NOT EXISTS idx_sfd_stokid ON tbstokfisidetayi (nstokid);
 CREATE INDEX IF NOT EXISTS idx_sfd_avid ON tbstokfisidetayi (nalisverisid);
 CREATE INDEX IF NOT EXISTS idx_odeme_avid ON tbodeme (nalisverisid);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tbstokfisidetayi_nislemid_key') THEN
+    ALTER TABLE tbstokfisidetayi ADD CONSTRAINT tbstokfisidetayi_nislemid_key UNIQUE (nislemid);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tbalisveris_pkey' OR conname = 'tbalisveris_nalisverisid_key') THEN
+    BEGIN ALTER TABLE tbalisveris ADD CONSTRAINT tbalisveris_nalisverisid_key UNIQUE (nalisverisid); EXCEPTION WHEN others THEN NULL; END;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tbodeme_pkey' OR conname = 'tbodeme_nodemeid_key') THEN
+    BEGIN ALTER TABLE tbodeme ADD CONSTRAINT tbodeme_nodemeid_key UNIQUE (nodemeid); EXCEPTION WHEN others THEN NULL; END;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tbmusteri_pkey' OR conname = 'tbmusteri_nmusteriid_key') THEN
+    BEGIN ALTER TABLE tbmusteri ADD CONSTRAINT tbmusteri_nmusteriid_key UNIQUE (nmusteriid); EXCEPTION WHEN others THEN NULL; END;
+  END IF;
+END $$;
 """
 
 MIGRATE_SECRET = 'pos-migrate-2024'
