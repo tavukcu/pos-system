@@ -670,16 +670,22 @@ def api_migrate_data():
     conn = get_connection()
     cursor = conn.cursor()
     count = 0
-    for row in rows:
+    errors = []
+    for i, row in enumerate(rows):
         try:
             cursor.execute(sql, row)
             count += 1
         except Exception as e:
             conn.rollback()
+            if len(errors) < 3:
+                errors.append(f"row {i}: {str(e)[:200]}")
             continue
     conn.commit()
     conn.close()
-    return jsonify({'ok': True, 'inserted': count, 'total': len(rows)})
+    result = {'ok': True, 'inserted': count, 'total': len(rows)}
+    if errors:
+        result['errors'] = errors
+    return jsonify(result)
 
 @app.route('/api/migrate/index', methods=['POST'])
 def api_migrate_index():

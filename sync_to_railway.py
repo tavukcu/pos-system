@@ -2,6 +2,9 @@
 Karpin (SQL Server) -> Railway (PostgreSQL) otomatik senkronizasyon.
 Belirli araliklarla yeni satislari, odemeleri ve stok hareketlerini aktarir.
 Kullanim: python sync_to_railway.py
+
+Windows Task Scheduler ile her dakika calistirilir.
+Zaten calisan bir instance varsa otomatik olarak cikar (lock dosyasi).
 """
 import pyodbc
 import requests
@@ -9,11 +12,61 @@ import json
 import time
 import logging
 import os
+import sys
+import atexit
 from datetime import datetime, date
 from decimal import Decimal
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Lock dosyasi - ayni anda birden fazla instance calismasini engelle
+LOCK_FILE = os.path.join(SCRIPT_DIR, 'sync.lock')
+
+def acquire_lock():
+    """Cift instance calismasini engelle."""
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, 'r') as f:
+                old_pid = int(f.read().strip())
+            # PID hala calisiyor mu kontrol et
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(0x1000, False, old_pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            if handle:
+                kernel32.CloseHandle(handle)
+                # Eski process hala calisiyor
+                return False
+        except (ValueError, OSError, AttributeError):
+            pass  # Lock dosyasi bozuk veya PID kontrol edilemedi, devam et
+    # Lock dosyasini olustur
+    with open(LOCK_FILE, 'w') as f:
+        f.write(str(os.getpid()))
+    return True
+
+def release_lock():
+    """Lock dosyasini sil."""
+    try:
+        if os.path.exists(LOCK_FILE):
+            with open(LOCK_FILE, 'r') as f:
+                pid = int(f.read().strip())
+            if pid == os.getpid():
+                os.remove(LOCK_FILE)
+    except:
+        pass
+
 # Log dosyasi ayarla
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sync.log')
+LOG_FILE = os.path.join(SCRIPT_DIR, 'sync.log')
+
+# Log dosyasi cok buyurse truncate et (5MB)
+try:
+    if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 5 * 1024 * 1024:
+        with open(LOG_FILE, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        with open(LOG_FILE, 'w', encoding='utf-8') as f:
+            f.writelines(lines[-500:])  # Son 500 satiri tut
+except:
+    pass
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(message)s',
@@ -32,8 +85,34 @@ SYNC_INTERVAL = 15  # 15 saniye
 
 mssql_conn_str = 'DRIVER={SQL Server};SERVER=(local);DATABASE=BUSINESS2023;UID=sa;PWD=Ceddan1234;'
 
+# Baglanti havuzu - her seferinde yeni baglanti acmak yerine yeniden kullan
+_mssql_conn = None
+
+def reset_mssql_conn():
+    """SQL Server baglantisini sifirla."""
+    global _mssql_conn
+    try:
+        if _mssql_conn:
+            _mssql_conn.close()
+    except:
+        pass
+    _mssql_conn = None
+
 def get_mssql():
-    return pyodbc.connect(mssql_conn_str)
+    """SQL Server baglantisi al, kopuksa yeniden baglan."""
+    global _mssql_conn
+    if _mssql_conn is not None:
+        try:
+            _mssql_conn.cursor().execute("SELECT 1")
+            return _mssql_conn
+        except:
+            try:
+                _mssql_conn.close()
+            except:
+                pass
+            _mssql_conn = None
+    _mssql_conn = pyodbc.connect(mssql_conn_str, timeout=10)
+    return _mssql_conn
 
 def serialize(val):
     if val is None:
@@ -52,7 +131,22 @@ def get_max_ids():
     """Railway'deki her tablonun max ID'sini al."""
     try:
         r = requests.post(f"{API_URL}/api/sync/max-id", json={'secret': SECRET}, timeout=30)
-        return r.json()
+        r.raise_for_status()
+        data = r.json()
+        # tbStokFisiDetayi ve tbMusteri integer olmali
+        for key in ('tbStokFisiDetayi', 'tbMusteri'):
+            if key in data and data[key] is not None:
+                try:
+                    data[key] = int(float(data[key]))
+                except (ValueError, TypeError):
+                    data[key] = 0
+        return data
+    except requests.exceptions.ConnectionError as e:
+        log(f"  Railway baglanti hatasi: {e}")
+        return None
+    except requests.exceptions.Timeout:
+        log(f"  Railway timeout")
+        return None
     except Exception as e:
         log(f"  Max ID alinamadi: {e}")
         return None
@@ -71,10 +165,19 @@ def upload_rows(table, cols, rows):
         }
         try:
             r = requests.post(f"{API_URL}/api/migrate/data", json=data, timeout=120)
+            r.raise_for_status()
             result = r.json()
-            uploaded += result.get('inserted', 0)
+            inserted = result.get('inserted', 0)
+            uploaded += inserted
+            if result.get('errors'):
+                for err in result['errors']:
+                    log(f"  DB HATA {table}: {err}")
+            if result.get('error'):
+                log(f"  UYARI {table} batch {i}: {result['error']}")
+        except requests.exceptions.Timeout:
+            log(f"  TIMEOUT {table} batch {i} - sonraki sync'te tekrar denenecek")
         except Exception as e:
-            log(f"  HATA batch {i}: {e}")
+            log(f"  HATA {table} batch {i}: {e}")
     return uploaded
 
 def sync_table(conn, table, id_col, max_id, sql_template):
@@ -85,17 +188,15 @@ def sync_table(conn, table, id_col, max_id, sql_template):
     rows = cursor.fetchall()
     if not rows:
         return 0
+    log(f"  {table}: {len(rows)} yeni kayit bulundu, aktariliyor...")
     uploaded = upload_rows(table, cols, rows)
-    log(f"  {table}: {uploaded} yeni kayit aktarildi")
+    log(f"  {table}: {uploaded}/{len(rows)} kayit aktarildi")
     return uploaded
 
 def do_sync():
     """Tek bir senkronizasyon dongusunu calistir."""
-    log("Senkronizasyon basliyor...")
-
     max_ids = get_max_ids()
     if max_ids is None:
-        log("  Railway'e ulasilamadi, sonraki dongude tekrar denenecek.")
         return
 
     conn = get_mssql()
@@ -124,8 +225,9 @@ def do_sync():
         "nKasaNo, sKullaniciAdi, dteKayitTarihi, sMagaza FROM tbOdeme WHERE dteKayitTarihi > ?"
     )
 
-    # Stok hareketleri
-    total += sync_table(conn, 'tbStokFisiDetayi', 'nIslemID', max_ids.get('tbStokFisiDetayi', 0),
+    # Stok hareketleri - integer bazli
+    max_islem = max_ids.get('tbStokFisiDetayi', 0) or 0
+    total += sync_table(conn, 'tbStokFisiDetayi', 'nIslemID', max_islem,
         "SELECT nIslemID, nStokID, dteIslemTarihi, nFirmaID, nMusteriID, sFisTipi, "
         "dteFisTarihi, lFisNo, nGirisCikis, sDepo, lReyonFisNo, sStokIslem, "
         "sKasiyerRumuzu, sSaticiRumuzu, sOdemeKodu, dteIrsaliyeTarihi, lIrsaliyeNo, "
@@ -139,27 +241,43 @@ def do_sync():
     )
 
     # Musteriler (yeni musteriler)
-    total += sync_table(conn, 'tbMusteri', 'nMusteriID', max_ids.get('tbMusteri', 0),
+    max_musteri = max_ids.get('tbMusteri', 0) or 0
+    total += sync_table(conn, 'tbMusteri', 'nMusteriID', max_musteri,
         "SELECT nMusteriID, sAdi, sSoyadi, sGSM AS sTelefon1, sEvIl AS sIl "
         "FROM tbMusteri WHERE nMusteriID > ?"
     )
 
-    conn.close()
-
-    if total == 0:
-        log("  Yeni kayit yok.")
-    else:
+    if total > 0:
         log(f"  Toplam {total} yeni kayit aktarildi.")
 
 if __name__ == '__main__':
+    if not acquire_lock():
+        print("Sync zaten calisiyor, cikiliyor.")
+        sys.exit(0)
+    atexit.register(release_lock)
+
     log("=" * 50)
     log("Karpin -> Railway Otomatik Senkronizasyon baslatildi")
-    log(f"Her {SYNC_INTERVAL} saniyede bir calisacak")
+    log(f"PID: {os.getpid()} | Her {SYNC_INTERVAL} saniyede bir calisacak")
     log("=" * 50)
 
+    fail_count = 0
     while True:
         try:
             do_sync()
+            fail_count = 0
+        except pyodbc.Error as e:
+            fail_count += 1
+            log(f"  SQL Server hatasi: {e}")
+            # Baglanti bozulmus olabilir, sifirlayalim
+            reset_mssql_conn()
+            if fail_count >= 5:
+                log(f"  {fail_count} ardisik hata, 60 saniye bekleniyor...")
+                time.sleep(60)
         except Exception as e:
+            fail_count += 1
             log(f"  HATA: {e}")
+            if fail_count >= 5:
+                log(f"  {fail_count} ardisik hata, 60 saniye bekleniyor...")
+                time.sleep(60)
         time.sleep(SYNC_INTERVAL)
