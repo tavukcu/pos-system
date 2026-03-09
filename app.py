@@ -615,19 +615,16 @@ CREATE INDEX IF NOT EXISTS idx_sfd_tarih ON tbstokfisidetayi (dteislemtarihi);
 CREATE INDEX IF NOT EXISTS idx_sfd_stokid ON tbstokfisidetayi (nstokid);
 CREATE INDEX IF NOT EXISTS idx_sfd_avid ON tbstokfisidetayi (nalisverisid);
 CREATE INDEX IF NOT EXISTS idx_odeme_avid ON tbodeme (nalisverisid);
+-- Duplicate kayitlari temizle, sonra unique constraint ekle
+DELETE FROM tbstokfisidetayi a USING tbstokfisidetayi b WHERE a.ctid < b.ctid AND a.nislemid = b.nislemid;
+DELETE FROM tbalisveris a USING tbalisveris b WHERE a.ctid < b.ctid AND a.nalisverisid = b.nalisverisid;
+DELETE FROM tbodeme a USING tbodeme b WHERE a.ctid < b.ctid AND a.nodemeid = b.nodemeid;
+DELETE FROM tbmusteri a USING tbmusteri b WHERE a.ctid < b.ctid AND a.nmusteriid = b.nmusteriid;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tbstokfisidetayi_nislemid_key') THEN
-    ALTER TABLE tbstokfisidetayi ADD CONSTRAINT tbstokfisidetayi_nislemid_key UNIQUE (nislemid);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tbalisveris_pkey' OR conname = 'tbalisveris_nalisverisid_key') THEN
-    BEGIN ALTER TABLE tbalisveris ADD CONSTRAINT tbalisveris_nalisverisid_key UNIQUE (nalisverisid); EXCEPTION WHEN others THEN NULL; END;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tbodeme_pkey' OR conname = 'tbodeme_nodemeid_key') THEN
-    BEGIN ALTER TABLE tbodeme ADD CONSTRAINT tbodeme_nodemeid_key UNIQUE (nodemeid); EXCEPTION WHEN others THEN NULL; END;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tbmusteri_pkey' OR conname = 'tbmusteri_nmusteriid_key') THEN
-    BEGIN ALTER TABLE tbmusteri ADD CONSTRAINT tbmusteri_nmusteriid_key UNIQUE (nmusteriid); EXCEPTION WHEN others THEN NULL; END;
-  END IF;
+  BEGIN ALTER TABLE tbstokfisidetayi ADD CONSTRAINT tbstokfisidetayi_nislemid_key UNIQUE (nislemid); EXCEPTION WHEN others THEN NULL; END;
+  BEGIN ALTER TABLE tbalisveris ADD CONSTRAINT tbalisveris_nalisverisid_key UNIQUE (nalisverisid); EXCEPTION WHEN others THEN NULL; END;
+  BEGIN ALTER TABLE tbodeme ADD CONSTRAINT tbodeme_nodemeid_key UNIQUE (nodemeid); EXCEPTION WHEN others THEN NULL; END;
+  BEGIN ALTER TABLE tbmusteri ADD CONSTRAINT tbmusteri_nmusteriid_key UNIQUE (nmusteriid); EXCEPTION WHEN others THEN NULL; END;
 END $$;
 """
 
