@@ -542,6 +542,7 @@ def api_rapor_canli():
     # Son satislar (bugunun, kasiyer ismiyle)
     son_satislar = query(
         "SELECT TOP 100 a.nAlisverisID, a.sFisTipi, a.dteFaturaTarihi, "
+        "a.dteKayitTarihi, "
         "a.lFaturaNo, a.sAlisverisYapanAdi, a.sAlisverisYapanSoyadi, "
         "a.lToplamMiktar, a.lNetTutar, "
         "ISNULL(k.sAdi, a.sKasiyerRumuzu) AS eleman_adi, a.sMagaza "
@@ -549,7 +550,7 @@ def api_rapor_canli():
         "LEFT JOIN tbKasiyer k ON RTRIM(a.sKasiyerRumuzu) = RTRIM(k.sKasiyerRumuzu) "
         "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
         "AND a.lNetTutar < 10000000 "
-        "ORDER BY a.dteFaturaTarihi DESC, a.lFaturaNo DESC",
+        "ORDER BY a.dteKayitTarihi DESC, a.lFaturaNo DESC",
         [tarih]
     )
 
@@ -568,7 +569,7 @@ def api_rapor_canli():
         'satislar': [{
             'id': r['nAlisverisID'].strip(),
             'fis_tipi': (r['sFisTipi'] or '').strip(),
-            'saat': r['dteFaturaTarihi'].strftime('%H:%M') if r['dteFaturaTarihi'] else '',
+            'saat': r['dteKayitTarihi'].strftime('%H:%M') if r['dteKayitTarihi'] else '',
             'tarih': r['dteFaturaTarihi'].strftime('%d.%m.%Y') if r['dteFaturaTarihi'] else '',
             'fis_no': int(r['lFaturaNo']),
             'musteri': f"{(r['sAlisverisYapanAdi'] or '').strip()} {(r['sAlisverisYapanSoyadi'] or '').strip()}".strip(),
