@@ -507,6 +507,74 @@ def api_rapor_satis_detay():
     } for r in rows])
 
 
+# --- API: CANLI SATIS TAKIP ---
+
+@app.route('/canli')
+def canli():
+    return render_template('canli.html')
+
+@app.route('/api/rapor/canli')
+def api_rapor_canli():
+    tarih = request.args.get('tarih', date.today().isoformat())
+
+    # Bugunun ozet bilgileri
+    ozet = query(
+        "SELECT COUNT(*) AS islem_adedi, "
+        "ISNULL(SUM(lNetTutar), 0) AS toplam_ciro, "
+        "ISNULL(AVG(lNetTutar), 0) AS ort_fis "
+        "FROM tbAlisVeris WHERE CAST(dteFaturaTarihi AS DATE) = ? "
+        "AND lNetTutar < 10000000",
+        [tarih]
+    )
+
+    # Eleman bazinda satis ozeti
+    eleman_rows = query(
+        "SELECT sKullaniciAdi, COUNT(*) AS islem_adedi, "
+        "SUM(lNetTutar) AS toplam_ciro "
+        "FROM tbAlisVeris WHERE CAST(dteFaturaTarihi AS DATE) = ? "
+        "AND lNetTutar < 10000000 "
+        "GROUP BY sKullaniciAdi ORDER BY toplam_ciro DESC",
+        [tarih]
+    )
+
+    # Son satislar (bugunun)
+    son_satislar = query(
+        "SELECT TOP 100 a.nAlisverisID, a.sFisTipi, a.dteFaturaTarihi, "
+        "a.lFaturaNo, a.sAlisverisYapanAdi, a.sAlisverisYapanSoyadi, "
+        "a.lToplamMiktar, a.lNetTutar, a.sKullaniciAdi, a.sMagaza "
+        "FROM tbAlisVeris a WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "AND a.lNetTutar < 10000000 "
+        "ORDER BY a.dteFaturaTarihi DESC, a.lFaturaNo DESC",
+        [tarih]
+    )
+
+    return jsonify({
+        'tarih': tarih,
+        'ozet': {
+            'islem_adedi': int(ozet[0]['islem_adedi']),
+            'toplam_ciro': float(ozet[0]['toplam_ciro']),
+            'ort_fis': float(ozet[0]['ort_fis']),
+        },
+        'elemanlar': [{
+            'ad': (r['sKullaniciAdi'] or '').strip(),
+            'islem_adedi': int(r['islem_adedi']),
+            'toplam_ciro': float(r['toplam_ciro']),
+        } for r in eleman_rows],
+        'satislar': [{
+            'id': r['nAlisverisID'].strip(),
+            'fis_tipi': (r['sFisTipi'] or '').strip(),
+            'saat': r['dteFaturaTarihi'].strftime('%H:%M') if r['dteFaturaTarihi'] else '',
+            'tarih': r['dteFaturaTarihi'].strftime('%d.%m.%Y') if r['dteFaturaTarihi'] else '',
+            'fis_no': int(r['lFaturaNo']),
+            'musteri': f"{(r['sAlisverisYapanAdi'] or '').strip()} {(r['sAlisverisYapanSoyadi'] or '').strip()}".strip(),
+            'miktar': float(r['lToplamMiktar']),
+            'tutar': float(r['lNetTutar']),
+            'eleman': (r['sKullaniciAdi'] or '').strip(),
+            'magaza': (r['sMagaza'] or '').strip(),
+        } for r in son_satislar],
+    })
+
+
 # --- API: MIGRATION (uzaktan veri aktarimi) ---
 
 MIGRATE_TABLES_SQL = """

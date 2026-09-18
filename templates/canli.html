@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Canli Satis Takip - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Canli Satis Takip</h1>
+    <div>
+        <span id="son-guncelleme" style="color:var(--text-light);font-size:13px;margin-right:12px"></span>
+        <span id="canli-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--success);animation:pulse 2s infinite"></span>
+        <span style="font-size:13px;color:var(--success);font-weight:600;margin-left:4px">CANLI</span>
+    </div>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:20px">
+    <div class="stat-card">
+        <div class="label">Bugunun Cirosu</div>
+        <div class="value success" id="c-ciro">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Islem Adedi</div>
+        <div class="value primary" id="c-adet">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Ortalama Fis</div>
+        <div class="value warning" id="c-ort">--</div>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h2>Eleman Performansi</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Eleman</th><th>Islem</th><th>Ciro</th><th>Oran</th></tr></thead>
+                <tbody id="eleman-table"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Eleman Ciro Dagilimi</h2>
+        <div id="eleman-chart" style="padding:20px 0"></div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Bugunun Satislari</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Saat</th><th>Fis No</th><th>Eleman</th><th>Musteri</th><th>Miktar</th><th>Tutar</th></tr></thead>
+            <tbody id="satis-table"></tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+.eleman-bar-container {
+    margin-bottom: 12px;
+}
+.eleman-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+.eleman-bar-track {
+    height: 28px;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.eleman-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+}
+.satis-row-new {
+    animation: highlight 2s ease;
+}
+@keyframes highlight {
+    from { background: #dbeafe; }
+    to { background: transparent; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const RENEW_INTERVAL = 30; // saniye
+const RENKLER = ['#2563eb','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
+let oncekiSatislar = [];
+
+async function yukle() {
+    try {
+        const data = await fetch('/api/rapor/canli').then(r => r.json());
+
+        // Ozet
+        document.getElementById('c-ciro').textContent = formatMoney(data.ozet.toplam_ciro);
+        document.getElementById('c-adet').textContent = data.ozet.islem_adedi;
+        document.getElementById('c-ort').textContent = formatMoney(data.ozet.ort_fis);
+
+        // Eleman tablosu
+        const toplamCiro = data.ozet.toplam_ciro || 1;
+        document.getElementById('eleman-table').innerHTML = data.elemanlar.map(e => {
+            const oran = ((e.toplam_ciro / toplamCiro) * 100).toFixed(1);
+            return `<tr>
+                <td><strong>${e.ad || 'Bilinmiyor'}</strong></td>
+                <td>${e.islem_adedi}</td>
+                <td><strong>${formatMoney(e.toplam_ciro)}</strong></td>
+                <td><span class="badge badge-primary">${oran}%</span></td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="4">Henuz satis yok</td></tr>';
+
+        // Eleman bar chart
+        const maxCiro = Math.max(...data.elemanlar.map(e => e.toplam_ciro), 1);
+        document.getElementById('eleman-chart').innerHTML = data.elemanlar.map((e, i) => {
+            const pct = (e.toplam_ciro / maxCiro) * 100;
+            const renk = RENKLER[i % RENKLER.length];
+            return `<div class="eleman-bar-container">
+                <div class="eleman-bar-label">
+                    <span>${e.ad || 'Bilinmiyor'}</span>
+                    <span>${formatMoney(e.toplam_ciro)}</span>
+                </div>
+                <div class="eleman-bar-track">
+                    <div class="eleman-bar-fill" style="width:${pct}%;background:${renk}">
+                        ${e.islem_adedi} islem
+                    </div>
+                </div>
+            </div>`;
+        }).join('') || '<p style="color:var(--text-light)">Henuz satis yok</p>';
+
+        // Satis tablosu
+        const yeniIdler = data.satislar.map(s => s.id);
+        const oncekiIdler = oncekiSatislar.map(s => s.id);
+
+        document.getElementById('satis-table').innerHTML = data.satislar.map(s => {
+            const yeniMi = oncekiSatislar.length > 0 && !oncekiIdler.includes(s.id);
+            return `<tr class="${yeniMi ? 'satis-row-new' : ''}" style="cursor:pointer" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')">
+                <td><strong>${s.saat}</strong></td>
+                <td>${s.fis_no}</td>
+                <td><span class="badge badge-success">${s.eleman || '-'}</span></td>
+                <td>${s.musteri || '-'}</td>
+                <td>${s.miktar.toFixed(2)}</td>
+                <td><strong>${formatMoney(s.tutar)}</strong></td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="6">Henuz satis yok</td></tr>';
+
+        oncekiSatislar = data.satislar;
+
+        // Son guncelleme
+        const simdi = new Date();
+        document.getElementById('son-guncelleme').textContent =
+            'Son guncelleme: ' + simdi.toLocaleTimeString('tr-TR');
+    } catch (err) {
+        console.error('Canli veri yuklenemedi:', err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    yukle();
+    setInterval(yukle, RENEW_INTERVAL * 1000);
+});
+</script>
+{% endblock %}
