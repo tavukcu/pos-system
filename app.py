@@ -2,6 +2,9 @@ from flask import Flask, render_template, request, jsonify
 from config import query, execute, get_connection, adapt_sql
 from datetime import datetime, date
 import traceback
+import threading
+import requests as req
+import os
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
@@ -821,6 +824,23 @@ def api_sync_max_id():
     conn.close()
     return jsonify(result)
 
+
+def keep_alive():
+    """Render free tier uyku modunu engelle - her 5 dakikada self-ping."""
+    import time
+    url = os.environ.get('RENDER_EXTERNAL_URL', '')
+    if not url:
+        return
+    while True:
+        time.sleep(300)
+        try:
+            req.get(f"{url}/healthz", timeout=10)
+        except:
+            pass
+
+if os.environ.get('RENDER'):
+    t = threading.Thread(target=keep_alive, daemon=True)
+    t.start()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

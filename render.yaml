@@ -19,3 +19,7 @@ services:
         fromDatabase:
           name: pos-db
           property: connectionString
+      - key: RENDER
+        value: "true"
+      - key: RENDER_EXTERNAL_URL
+        value: "https://pos-app-ghkd.onrender.com"
