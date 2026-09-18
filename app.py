@@ -78,6 +78,10 @@ def parse_tabak_barkod(barkod):
 
 # --- ROUTES ---
 
+@app.route('/healthz')
+def healthz():
+    return 'ok'
+
 @app.route('/')
 def index():
     return render_template('index.html')
