@@ -1,33 +1,34 @@
 {% extends "base.html" %}
 {% block title %}Canli Satis Takip - POS{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>Canli Satis Takip</h1>
-    <div>
-        <span id="son-guncelleme" style="color:var(--text-light);font-size:13px;margin-right:12px"></span>
-        <span id="canli-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--success);animation:pulse 2s infinite"></span>
-        <span style="font-size:13px;color:var(--success);font-weight:600;margin-left:4px">CANLI</span>
+<div class="page-header canli-header">
+    <h1>Canli Satis</h1>
+    <div class="canli-status">
+        <span id="son-guncelleme"></span>
+        <span class="canli-dot"></span>
+        <span class="canli-label">CANLI</span>
     </div>
 </div>
 
-<div class="grid grid-3" style="margin-bottom:20px">
+<div class="canli-stats">
     <div class="stat-card">
-        <div class="label">Bugunun Cirosu</div>
+        <div class="label">Ciro</div>
         <div class="value success" id="c-ciro">--</div>
     </div>
     <div class="stat-card">
-        <div class="label">Islem Adedi</div>
+        <div class="label">Islem</div>
         <div class="value primary" id="c-adet">--</div>
     </div>
     <div class="stat-card">
-        <div class="label">Ortalama Fis</div>
+        <div class="label">Ort. Fis</div>
         <div class="value warning" id="c-ort">--</div>
     </div>
 </div>
 
-<div class="grid grid-2">
+<div class="canli-grid">
     <div class="card">
         <h2>Eleman Performansi</h2>
+        <div id="eleman-chart" style="padding:8px 0"></div>
         <div class="table-wrapper">
             <table>
                 <thead><tr><th>Eleman</th><th>Islem</th><th>Ciro</th><th>Oran</th></tr></thead>
@@ -35,18 +36,13 @@
             </table>
         </div>
     </div>
-
-    <div class="card">
-        <h2>Eleman Ciro Dagilimi</h2>
-        <div id="eleman-chart" style="padding:20px 0"></div>
-    </div>
 </div>
 
 <div class="card">
     <h2>Bugunun Satislari</h2>
     <div class="table-wrapper">
-        <table>
-            <thead><tr><th>Saat</th><th>Fis No</th><th>Eleman</th><th>Musteri</th><th>Miktar</th><th>Tutar</th></tr></thead>
+        <table class="satis-tablo">
+            <thead><tr><th>Saat</th><th>Eleman</th><th>Musteri</th><th>Tutar</th></tr></thead>
             <tbody id="satis-table"></tbody>
         </table>
     </div>
@@ -57,39 +53,44 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
 }
-.eleman-bar-container {
-    margin-bottom: 12px;
-}
-.eleman-bar-label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    margin-bottom: 4px;
-    font-weight: 600;
-}
-.eleman-bar-track {
-    height: 28px;
-    background: var(--bg);
-    border-radius: 6px;
-    overflow: hidden;
-}
-.eleman-bar-fill {
-    height: 100%;
-    border-radius: 6px;
-    transition: width 0.5s ease;
-    display: flex;
-    align-items: center;
-    padding-left: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #fff;
-}
-.satis-row-new {
-    animation: highlight 2s ease;
-}
 @keyframes highlight {
     from { background: #dbeafe; }
     to { background: transparent; }
+}
+.canli-header { flex-wrap: wrap; gap: 8px; }
+.canli-header h1 { font-size: 20px; }
+.canli-status { display: flex; align-items: center; gap: 6px; }
+.canli-status #son-guncelleme { color: var(--text-light); font-size: 11px; }
+.canli-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+.canli-label { font-size: 12px; color: var(--success); font-weight: 700; }
+
+.canli-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.canli-stats .stat-card { padding: 14px; }
+.canli-stats .stat-card .value { font-size: 22px; }
+.canli-stats .stat-card .label { font-size: 11px; }
+
+.canli-grid { margin-bottom: 16px; }
+
+.eleman-bar-container { margin-bottom: 10px; }
+.eleman-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; font-weight: 600; }
+.eleman-bar-track { height: 24px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+.eleman-bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s ease; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 600; color: #fff; }
+
+.satis-row-new { animation: highlight 2s ease; }
+.satis-tablo td, .satis-tablo th { padding: 8px; font-size: 13px; }
+
+@media (max-width: 768px) {
+    .canli-stats .stat-card .value { font-size: 18px; }
+    .canli-stats .stat-card .label { font-size: 10px; }
+    .canli-stats .stat-card { padding: 10px; }
+    .canli-stats { gap: 6px; margin-bottom: 12px; }
+    .canli-header h1 { font-size: 16px; }
+    .card { padding: 14px; margin-bottom: 12px; }
+    .card h2 { font-size: 15px; margin-bottom: 10px; }
+    .satis-tablo td, .satis-tablo th { padding: 6px 4px; font-size: 12px; }
+    .eleman-bar-label { font-size: 11px; }
+    .eleman-bar-track { height: 22px; }
+    .eleman-bar-fill { font-size: 10px; }
 }
 </style>
 {% endblock %}
@@ -147,13 +148,11 @@ async function yukle() {
             const yeniMi = oncekiSatislar.length > 0 && !oncekiIdler.includes(s.id);
             return `<tr class="${yeniMi ? 'satis-row-new' : ''}" style="cursor:pointer" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')">
                 <td><strong>${s.saat}</strong></td>
-                <td>${s.fis_no}</td>
                 <td><span class="badge badge-success">${s.eleman || '-'}</span></td>
                 <td>${s.musteri || '-'}</td>
-                <td>${s.miktar.toFixed(2)}</td>
                 <td><strong>${formatMoney(s.tutar)}</strong></td>
             </tr>`;
-        }).join('') || '<tr><td colspan="6">Henuz satis yok</td></tr>';
+        }).join('') || '<tr><td colspan="4">Henuz satis yok</td></tr>';
 
         oncekiSatislar = data.satislar;
 
