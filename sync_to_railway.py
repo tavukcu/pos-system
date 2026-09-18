@@ -78,7 +78,7 @@ logging.basicConfig(
 )
 log = logging.info
 
-API_URL = "https://pos-app-production-f14d.up.railway.app"
+API_URL = "https://pos-app-ghkd.onrender.com"
 SECRET = "pos-migrate-2024"
 BATCH_SIZE = 500
 SYNC_INTERVAL = 15  # 15 saniye
