@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Urun Raporu - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Urun Bazli Satis Raporu</h1>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+    <div class="tarih-filtre">
+        <div class="tarih-grup">
+            <label>Baslangic</label>
+            <input type="date" id="tarih-bas" />
+        </div>
+        <div class="tarih-grup">
+            <label>Bitis</label>
+            <input type="date" id="tarih-bit" />
+        </div>
+        <button class="btn btn-primary" onclick="yukle()">Getir</button>
+    </div>
+    <div class="hizli-filtre">
+        <button class="btn btn-secondary btn-sm" onclick="hizli(0)">Bugun</button>
+        <button class="btn btn-secondary btn-sm" onclick="hizli(7)">7 Gun</button>
+        <button class="btn btn-secondary btn-sm" onclick="hizli(30)">30 Gun</button>
+        <button class="btn btn-secondary btn-sm" onclick="hizli(90)">90 Gun</button>
+    </div>
+</div>
+
+<div class="ur-stats">
+    <div class="stat-card">
+        <div class="label">Toplam Ciro</div>
+        <div class="value success" id="ur-ciro">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Urun Cesidi</div>
+        <div class="value primary" id="ur-cesit">--</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Urun Satis Detayi</h2>
+    <div class="table-wrapper">
+        <table class="urun-tablo">
+            <thead><tr><th>#</th><th>Urun</th><th>Miktar</th><th>Tutar</th><th>Oran</th></tr></thead>
+            <tbody id="urun-table"></tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.tarih-filtre { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+.tarih-grup { display: flex; flex-direction: column; gap: 4px; }
+.tarih-grup label { font-size: 12px; font-weight: 600; color: var(--text-light); }
+.tarih-grup input { width: 150px; }
+.hizli-filtre { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.ur-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+.urun-tablo td, .urun-tablo th { padding: 8px; font-size: 13px; }
+.oran-bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--primary); min-width: 4px; vertical-align: middle; margin-right: 6px; }
+
+@media (max-width: 768px) {
+    .tarih-grup input { width: 130px; }
+    .tarih-filtre { gap: 6px; }
+    .ur-stats .stat-card .value { font-size: 18px; }
+    .ur-stats .stat-card { padding: 10px; }
+    .urun-tablo td, .urun-tablo th { padding: 6px 4px; font-size: 12px; }
+    .urun-tablo td:first-child, .urun-tablo th:first-child { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function today() { return new Date().toISOString().split('T')[0]; }
+function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0]; }
+
+function hizli(gun) {
+    document.getElementById('tarih-bit').value = today();
+    document.getElementById('tarih-bas').value = gun === 0 ? today() : daysAgo(gun);
+    yukle();
+}
+
+async function yukle() {
+    const bas = document.getElementById('tarih-bas').value;
+    const bit = document.getElementById('tarih-bit').value;
+    if (!bas || !bit) return;
+
+    const data = await fetch(`/api/rapor/urun_bazli?baslangic=${bas}&bitis=${bit}`).then(r => r.json());
+
+    document.getElementById('ur-ciro').textContent = formatMoney(data.toplam_ciro);
+    document.getElementById('ur-cesit').textContent = data.urun_sayisi;
+
+    document.getElementById('urun-table').innerHTML = data.urunler.map((u, i) =>
+        `<tr>
+            <td>${i + 1}</td>
+            <td><strong>${u.ad}</strong></td>
+            <td>${u.miktar.toFixed(u.birim === 'KG' ? 2 : 0)} ${u.birim}</td>
+            <td><strong>${formatMoney(u.tutar)}</strong></td>
+            <td><span class="oran-bar" style="width:${Math.max(u.oran, 1)}px"></span>${u.oran}%</td>
+        </tr>`
+    ).join('') || '<tr><td colspan="5">Veri bulunamadi</td></tr>';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('tarih-bas').value = today();
+    document.getElementById('tarih-bit').value = today();
+    yukle();
+});
+</script>
+{% endblock %}

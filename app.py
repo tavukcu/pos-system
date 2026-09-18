@@ -514,6 +514,51 @@ def api_rapor_satis_detay():
     } for r in rows])
 
 
+# --- API: URUN BAZLI RAPOR ---
+
+@app.route('/urun-rapor')
+def urun_rapor():
+    return render_template('urun_rapor.html')
+
+@app.route('/api/rapor/urun_bazli')
+def api_rapor_urun_bazli():
+    baslangic = request.args.get('baslangic', date.today().isoformat())
+    bitis = request.args.get('bitis', date.today().isoformat())
+
+    rows = query(
+        "SELECT s.sAciklama, s.sKodu, s.sBirimCinsi1, "
+        "SUM(d.lCikisMiktar1) AS toplam_miktar, "
+        "SUM(d.lCikisTutar) AS toplam_tutar, "
+        "COUNT(DISTINCT d.nAlisverisID) AS islem_adedi "
+        "FROM tbStokFisiDetayi d "
+        "JOIN tbStok s ON d.nStokID = s.nStokID "
+        "WHERE CAST(d.dteIslemTarihi AS DATE) >= ? "
+        "AND CAST(d.dteIslemTarihi AS DATE) <= ? "
+        "AND d.lCikisTutar < 10000000 AND d.nGirisCikis = 3 "
+        "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1 "
+        "ORDER BY toplam_tutar DESC",
+        [baslangic, bitis]
+    )
+
+    toplam_ciro = sum(float(r['toplam_tutar']) for r in rows)
+
+    return jsonify({
+        'baslangic': baslangic,
+        'bitis': bitis,
+        'toplam_ciro': toplam_ciro,
+        'urun_sayisi': len(rows),
+        'urunler': [{
+            'ad': (r['sAciklama'] or '').strip(),
+            'kod': (r['sKodu'] or '').strip(),
+            'birim': (r['sBirimCinsi1'] or 'AD').strip(),
+            'miktar': float(r['toplam_miktar']),
+            'tutar': float(r['toplam_tutar']),
+            'islem': int(r['islem_adedi']),
+            'oran': round(float(r['toplam_tutar']) / toplam_ciro * 100, 1) if toplam_ciro > 0 else 0,
+        } for r in rows],
+    })
+
+
 # --- API: CANLI SATIS TAKIP ---
 
 @app.route('/canli')
