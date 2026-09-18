@@ -527,22 +527,27 @@ def api_rapor_canli():
         [tarih]
     )
 
-    # Eleman bazinda satis ozeti
+    # Eleman bazinda satis ozeti (kasiyer ismiyle)
     eleman_rows = query(
-        "SELECT sKullaniciAdi, COUNT(*) AS islem_adedi, "
-        "SUM(lNetTutar) AS toplam_ciro "
-        "FROM tbAlisVeris WHERE CAST(dteFaturaTarihi AS DATE) = ? "
-        "AND lNetTutar < 10000000 "
-        "GROUP BY sKullaniciAdi ORDER BY toplam_ciro DESC",
+        "SELECT ISNULL(k.sAdi, a.sKasiyerRumuzu) AS eleman_adi, "
+        "COUNT(*) AS islem_adedi, SUM(a.lNetTutar) AS toplam_ciro "
+        "FROM tbAlisVeris a "
+        "LEFT JOIN tbKasiyer k ON RTRIM(a.sKasiyerRumuzu) = RTRIM(k.sKasiyerRumuzu) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "AND a.lNetTutar < 10000000 "
+        "GROUP BY ISNULL(k.sAdi, a.sKasiyerRumuzu) ORDER BY toplam_ciro DESC",
         [tarih]
     )
 
-    # Son satislar (bugunun)
+    # Son satislar (bugunun, kasiyer ismiyle)
     son_satislar = query(
         "SELECT TOP 100 a.nAlisverisID, a.sFisTipi, a.dteFaturaTarihi, "
         "a.lFaturaNo, a.sAlisverisYapanAdi, a.sAlisverisYapanSoyadi, "
-        "a.lToplamMiktar, a.lNetTutar, a.sKullaniciAdi, a.sMagaza "
-        "FROM tbAlisVeris a WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "a.lToplamMiktar, a.lNetTutar, "
+        "ISNULL(k.sAdi, a.sKasiyerRumuzu) AS eleman_adi, a.sMagaza "
+        "FROM tbAlisVeris a "
+        "LEFT JOIN tbKasiyer k ON RTRIM(a.sKasiyerRumuzu) = RTRIM(k.sKasiyerRumuzu) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
         "AND a.lNetTutar < 10000000 "
         "ORDER BY a.dteFaturaTarihi DESC, a.lFaturaNo DESC",
         [tarih]
@@ -556,7 +561,7 @@ def api_rapor_canli():
             'ort_fis': float(ozet[0]['ort_fis']),
         },
         'elemanlar': [{
-            'ad': (r['sKullaniciAdi'] or '').strip(),
+            'ad': (r['eleman_adi'] or '').strip(),
             'islem_adedi': int(r['islem_adedi']),
             'toplam_ciro': float(r['toplam_ciro']),
         } for r in eleman_rows],
@@ -569,7 +574,7 @@ def api_rapor_canli():
             'musteri': f"{(r['sAlisverisYapanAdi'] or '').strip()} {(r['sAlisverisYapanSoyadi'] or '').strip()}".strip(),
             'miktar': float(r['lToplamMiktar']),
             'tutar': float(r['lNetTutar']),
-            'eleman': (r['sKullaniciAdi'] or '').strip(),
+            'eleman': (r['eleman_adi'] or '').strip(),
             'magaza': (r['sMagaza'] or '').strip(),
         } for r in son_satislar],
     })
