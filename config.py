@@ -61,6 +61,8 @@ if DB_MODE == 'postgres':
         'sDefaultAsortiTipi','bEksideUyarsinmi','bOTVVar','sOTVTipi',
         'nIskontoYuzdesiAV','bEk1','nEk2','nPrim','nEn','nBoy','nYukseklik',
         'nHacim','nAgirlik','sDovizCinsi','sAlisKdvTipi','nButce','nKarlilik','sUlke',
+        'sKasiyerRumuzu','sDepo','bIptalYapabilirmi',
+        'bVadeFarksizOdemeAlirmi','nMaxIskontoYuzdesi','sSifresi',
         'nTeminSuresi','lAsgariMiktar','lAzamiMiktar',
         'sKarsiStokKodu','sKarsiStokAciklama','sBirimCinsi','lBirimMiktar',
         'dteFiyatTespitTarihi','nIslemID']:

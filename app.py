@@ -652,6 +652,12 @@ CREATE TABLE tbodeme (
     bmuhasebeyeislendimi BOOLEAN DEFAULT FALSE, nkasano NUMERIC DEFAULT 0,
     skullaniciadi VARCHAR(60) DEFAULT '', dtekayittarihi TIMESTAMP, smagaza VARCHAR(4) DEFAULT ''
 );
+CREATE TABLE tbkasiyer (
+    skasiyerrumuzu VARCHAR(4) DEFAULT '', sadi VARCHAR(60) DEFAULT '',
+    ssoyadi VARCHAR(60) DEFAULT '', ssifresi VARCHAR(20) DEFAULT '',
+    sdepo VARCHAR(4) DEFAULT '', biptalyapabilirmi BOOLEAN DEFAULT FALSE,
+    bvadefarksizodemealirmi BOOLEAN DEFAULT FALSE, nmaxiskontoyuzdesi NUMERIC DEFAULT 0
+);
 CREATE TABLE tbstokfisidetayi (
     nislemid NUMERIC NOT NULL, nstokid INTEGER DEFAULT 0, dteislemtarihi TIMESTAMP,
     nfirmaid INTEGER DEFAULT 0, nmusteriid INTEGER DEFAULT 0, sfistipi VARCHAR(3) DEFAULT '',
@@ -736,6 +742,7 @@ def api_migrate_data():
         'tbstokbarkodu': None,
         'tbstokfiyati': None,
         'tbstoksinifi': None,
+        'tbkasiyer': None,
         'tbstokfisidetayi': 'nislemid',
         'tbodeme': 'nodemeid',
         'tbmusteri': 'nmusteriid',

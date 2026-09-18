@@ -1,0 +1,20 @@
+databases:
+  - name: pos-db
+    plan: free
+    databaseName: posdb
+    user: posuser
+
+services:
+  - type: web
+    name: pos-app
+    plan: free
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DB_MODE
+        value: postgres
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pos-db
+          property: connectionString
