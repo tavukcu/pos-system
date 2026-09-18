@@ -78,6 +78,7 @@
 
 .satis-row-new { animation: highlight 2s ease; }
 .satis-tablo td, .satis-tablo th { padding: 8px; font-size: 13px; }
+.satis-tablo tr[data-id] { cursor: pointer; -webkit-tap-highlight-color: rgba(37,99,235,0.2); }
 
 @media (max-width: 768px) {
     .canli-stats .stat-card .value { font-size: 18px; }
@@ -88,6 +89,8 @@
     .card { padding: 14px; margin-bottom: 12px; }
     .card h2 { font-size: 15px; margin-bottom: 10px; }
     .satis-tablo td, .satis-tablo th { padding: 6px 4px; font-size: 12px; }
+    #satis-detay-modal > div { padding: 16px; max-width: 95%; }
+    #satis-detay-modal table td, #satis-detay-modal table th { padding: 6px 4px; font-size: 12px; }
     .eleman-bar-label { font-size: 11px; }
     .eleman-bar-track { height: 22px; }
     .eleman-bar-fill { font-size: 10px; }
@@ -146,7 +149,7 @@ async function yukle() {
 
         document.getElementById('satis-table').innerHTML = data.satislar.map(s => {
             const yeniMi = oncekiSatislar.length > 0 && !oncekiIdler.includes(s.id);
-            return `<tr class="${yeniMi ? 'satis-row-new' : ''}" style="cursor:pointer" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')">
+            return `<tr class="${yeniMi ? 'satis-row-new' : ''}" data-id="${s.id}" data-fis="${s.fis_no}" data-tarih="${s.tarih}">
                 <td><strong>${s.saat}</strong></td>
                 <td><span class="badge badge-success">${s.eleman || '-'}</span></td>
                 <td>${s.musteri || '-'}</td>
@@ -168,6 +171,13 @@ async function yukle() {
 document.addEventListener('DOMContentLoaded', () => {
     yukle();
     setInterval(yukle, RENEW_INTERVAL * 1000);
+
+    document.getElementById('satis-table').addEventListener('click', function(e) {
+        const tr = e.target.closest('tr[data-id]');
+        if (tr) {
+            showSatisDetay(tr.dataset.id, tr.dataset.fis, tr.dataset.tarih);
+        }
+    });
 });
 </script>
 {% endblock %}
