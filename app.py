@@ -453,6 +453,43 @@ def api_musteriler():
     } for r in rows])
 
 
+@app.route('/api/musteri/ekle', methods=['POST'])
+def api_musteri_ekle():
+    d = request.json or {}
+    adi = (d.get('adi') or '').strip()
+    soyadi = (d.get('soyadi') or '').strip()
+    if not adi and not soyadi:
+        return jsonify({'error': 'Ad veya soyad gerekli'}), 400
+    telefon = (d.get('telefon') or '').strip()
+    il = (d.get('il') or '').strip()
+
+    max_id = query("SELECT ISNULL(MAX(nMusteriID), 0) AS maxid FROM tbMusteri")
+    new_id = int(max_id[0]['maxid']) + 1
+
+    execute(
+        adapt_sql("INSERT INTO tbMusteri (nMusteriID, sAdi, sSoyadi, sTelefon1, sIl) VALUES (?, ?, ?, ?, ?)"),
+        [new_id, adi, soyadi, telefon, il]
+    )
+    return jsonify({'ok': True, 'id': new_id})
+
+
+@app.route('/api/musteri/<int:musteri_id>/guncelle', methods=['PUT'])
+def api_musteri_guncelle(musteri_id):
+    d = request.json or {}
+    adi = (d.get('adi') or '').strip()
+    soyadi = (d.get('soyadi') or '').strip()
+    if not adi and not soyadi:
+        return jsonify({'error': 'Ad veya soyad gerekli'}), 400
+    telefon = (d.get('telefon') or '').strip()
+    il = (d.get('il') or '').strip()
+
+    execute(
+        adapt_sql("UPDATE tbMusteri SET sAdi=?, sSoyadi=?, sTelefon1=?, sIl=? WHERE nMusteriID=?"),
+        [adi, soyadi, telefon, il, musteri_id]
+    )
+    return jsonify({'ok': True})
+
+
 # --- API: MUSTERI GECMISI ---
 
 @app.route('/api/musteri/<int:musteri_id>/gecmis')

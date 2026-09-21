@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Musteriler - POS{% endblock %}
 {% block content %}
-<div class="page-header">
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
     <h1>Musteriler</h1>
+    <button class="btn btn-primary" onclick="openForm(null)">+ Yeni Musteri</button>
 </div>
 
 <div class="search-bar">
@@ -18,10 +19,41 @@
                     <th>Ad Soyad</th>
                     <th>Telefon</th>
                     <th>Il</th>
+                    <th style="width:60px"></th>
                 </tr>
             </thead>
             <tbody id="musteri-table"></tbody>
         </table>
+    </div>
+</div>
+
+<!-- EKLE / DUZENLE MODAL -->
+<div id="form-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1100;justify-content:center;align-items:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;width:92%;position:relative">
+        <button onclick="closeForm()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 id="form-baslik" style="margin:0 0 20px"></h3>
+        <input type="hidden" id="form-id">
+        <div class="form-group" style="margin-bottom:14px">
+            <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Ad *</label>
+            <input type="text" id="f-adi" placeholder="Ad" style="width:100%;padding:10px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;box-sizing:border-box">
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+            <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Soyad</label>
+            <input type="text" id="f-soyadi" placeholder="Soyad" style="width:100%;padding:10px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;box-sizing:border-box">
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+            <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Telefon</label>
+            <input type="tel" id="f-telefon" placeholder="05xx xxx xx xx" style="width:100%;padding:10px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;box-sizing:border-box">
+        </div>
+        <div class="form-group" style="margin-bottom:20px">
+            <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Il</label>
+            <input type="text" id="f-il" placeholder="Il" style="width:100%;padding:10px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;box-sizing:border-box">
+        </div>
+        <div id="form-hata" style="color:#dc3545;font-size:13px;margin-bottom:12px;display:none"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-secondary" onclick="closeForm()">Iptal</button>
+            <button class="btn btn-primary" id="form-kaydet" onclick="kaydetMusteri()">Kaydet</button>
+        </div>
     </div>
 </div>
 
@@ -34,25 +66,15 @@
             <a id="gm-export" href="#" class="btn btn-secondary" style="padding:4px 12px;font-size:12px;margin-left:12px;white-space:nowrap">&#8595; Excel</a>
         </div>
         <p id="gm-telefon" style="margin:0 0 16px;color:#666;font-size:13px"></p>
-
-        <!-- ozet kartlar -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px" id="gm-ozet"></div>
-
-        <!-- odeme dagilimi -->
         <div id="gm-odeme" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
-
-        <!-- satislar tablosu -->
         <h4 style="margin:0 0 8px;font-size:14px;color:#666">SON 50 ALISVERIS</h4>
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
-                        <th>Tarih</th>
-                        <th>Saat</th>
-                        <th>Fis No</th>
-                        <th>Odeme</th>
-                        <th style="text-align:right">Tutar</th>
-                        <th></th>
+                        <th>Tarih</th><th>Saat</th><th>Fis No</th><th>Odeme</th>
+                        <th style="text-align:right">Tutar</th><th></th>
                     </tr>
                 </thead>
                 <tbody id="gm-satislar"></tbody>
@@ -80,13 +102,90 @@ async function searchMusteriler() {
 
 function renderMusteriler(data) {
     document.getElementById('musteri-table').innerHTML = data.map(m => `
-        <tr style="cursor:pointer" onclick="showGecmis(${m.id}, '${esc(m.adi)} ${esc(m.soyadi)}', '${esc(m.telefon)}')">
-            <td><strong>${esc(m.adi)} ${esc(m.soyadi)}</strong></td>
+        <tr>
+            <td style="cursor:pointer" onclick="showGecmis(${m.id}, '${esc(m.adi)} ${esc(m.soyadi)}', '${esc(m.telefon)}')">
+                <strong>${esc(m.adi)} ${esc(m.soyadi)}</strong>
+            </td>
             <td>${esc(m.telefon)}</td>
             <td>${esc(m.il)}</td>
+            <td>
+                <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px"
+                    onclick="event.stopPropagation();openForm(${JSON.stringify(m)})">Duzenle</button>
+            </td>
         </tr>
-    `).join('') || '<tr><td colspan="3" style="text-align:center;color:#999">Sonuc bulunamadi</td></tr>';
+    `).join('') || '<tr><td colspan="4" style="text-align:center;color:#999">Sonuc bulunamadi</td></tr>';
 }
+
+// --- EKLE / DUZENLE ---
+
+function openForm(m) {
+    document.getElementById('form-id').value = m ? m.id : '';
+    document.getElementById('form-baslik').textContent = m ? 'Musteri Duzenle' : 'Yeni Musteri';
+    document.getElementById('f-adi').value = m ? m.adi : '';
+    document.getElementById('f-soyadi').value = m ? m.soyadi : '';
+    document.getElementById('f-telefon').value = m ? m.telefon : '';
+    document.getElementById('f-il').value = m ? m.il : '';
+    document.getElementById('form-hata').style.display = 'none';
+    document.getElementById('form-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('f-adi').focus(), 50);
+}
+
+function closeForm() {
+    document.getElementById('form-modal').style.display = 'none';
+}
+
+document.getElementById('form-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeForm();
+});
+
+async function kaydetMusteri() {
+    const id = document.getElementById('form-id').value;
+    const body = {
+        adi:     document.getElementById('f-adi').value.trim(),
+        soyadi:  document.getElementById('f-soyadi').value.trim(),
+        telefon: document.getElementById('f-telefon').value.trim(),
+        il:      document.getElementById('f-il').value.trim(),
+    };
+    if (!body.adi && !body.soyadi) {
+        const hata = document.getElementById('form-hata');
+        hata.textContent = 'Ad veya soyad gerekli';
+        hata.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('form-kaydet');
+    btn.disabled = true; btn.textContent = 'Kaydediliyor...';
+
+    try {
+        const url = id ? `/api/musteri/${id}/guncelle` : '/api/musteri/ekle';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        }).then(r => r.json());
+
+        if (res.ok) {
+            closeForm();
+            const q = document.getElementById('musteri-search').value.trim();
+            const data = await fetch('/api/musteriler' + (q ? '?q=' + encodeURIComponent(q) : '')).then(r => r.json());
+            renderMusteriler(data);
+        } else {
+            const hata = document.getElementById('form-hata');
+            hata.textContent = res.error || 'Hata olustu';
+            hata.style.display = 'block';
+        }
+    } finally {
+        btn.disabled = false; btn.textContent = 'Kaydet';
+    }
+}
+
+// Enter key in form
+['f-adi','f-soyadi','f-telefon','f-il'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') kaydetMusteri(); });
+});
+
+// --- GECMIS MODAL ---
 
 async function showGecmis(id, ad, telefon) {
     document.getElementById('gm-baslik').textContent = ad.trim() || 'Musteri #' + id;
@@ -99,7 +198,6 @@ async function showGecmis(id, ad, telefon) {
     const data = await fetch('/api/musteri/' + id + '/gecmis').then(r => r.json());
     const o = data.ozet;
 
-    // Ozet kartlar
     document.getElementById('gm-ozet').innerHTML = `
         <div class="stat-card" style="padding:10px">
             <div style="font-size:18px;font-weight:700;color:#0d6efd">${formatMoney(o.toplam_harcama)}</div>
@@ -123,7 +221,6 @@ async function showGecmis(id, ad, telefon) {
         </div>
     `;
 
-    // Odeme dagilimi
     const odemeAd = { N: 'Nakit', K: 'Kart', V: 'Veresiye', T: 'Odendi' };
     const odemeRenk = { N: '#198754', K: '#0d6efd', V: '#dc3545', T: '#6c757d' };
     document.getElementById('gm-odeme').innerHTML = Object.entries(data.odeme)
@@ -135,7 +232,6 @@ async function showGecmis(id, ad, telefon) {
                 <span style="color:#999">(${v.islem} islem)</span>
             </div>`).join('');
 
-    // Satislar
     const sekRenk = { N: '#198754', K: '#0d6efd', V: '#dc3545', T: '#6c757d' };
     document.getElementById('gm-satislar').innerHTML = data.satislar.map(s => `
         <tr>
