@@ -1060,8 +1060,9 @@ def export_kasa():
         "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? AND a.lNetTutar < 10000000 "
         "GROUP BY RTRIM(o.sOdemeSekli)", [tarih]
     )
-    sekil_ad = {'N': 'Nakit', 'K': 'Kredi Karti', 'V': 'Veresiye', 'T': 'Tahsilat'}
-    ozet_satirlar = [[sekil_ad.get((r['sekil'] or '').strip(), r['sekil']),
+    sekil_ad = {'N': 'Nakit', 'K': 'Kredi Karti', 'V': 'Veresiye', 'T': 'Tahsilat',
+                '1': 'Nakit(1)', '2': 'Kart(2)', '3': 'Cek(3)'}
+    ozet_satirlar = [[sekil_ad.get((r['sekil'] or '').strip(), (r['sekil'] or '-').strip()),
                       int(r['islem_adedi']), round(float(r['toplam']), 2)] for r in ozet_rows]
     # Kasiyere gore
     k_rows = query(
@@ -1074,8 +1075,8 @@ def export_kasa():
         "GROUP BY ISNULL(k.sAdi, RTRIM(a.sKasiyerRumuzu)), RTRIM(o.sOdemeSekli) "
         "ORDER BY eleman_adi", [tarih]
     )
-    k_satirlar = [[(r['eleman_adi'] or '').strip(),
-                   sekil_ad.get((r['sekil'] or '').strip(), r['sekil']),
+    k_satirlar = [[(r['eleman_adi'] or 'Bilinmiyor').strip() or 'Bilinmiyor',
+                   sekil_ad.get((r['sekil'] or '').strip(), (r['sekil'] or '-').strip()),
                    int(r['islem_adedi']), round(float(r['toplam']), 2)] for r in k_rows]
     buf = make_excel([
         {'baslik': 'Ozet', 'sutunlar': ['Odeme Sekli', 'Islem Adedi', 'Tutar (TL)'], 'satirlar': ozet_satirlar},
