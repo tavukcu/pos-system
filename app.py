@@ -868,7 +868,10 @@ def api_rapor_karlilik():
     toplam_kar = sum(a['kar'] for a in aylar)
     ort_marj = round(toplam_kar / toplam_ciro * 100, 1) if toplam_ciro > 0 else 0
     en_iyi = max(aylar, key=lambda x: x['ciro']) if aylar else None
-    maliyet_var = toplam_kar != toplam_ciro  # lMalBedeli dolu mu?
+    # lMalBedeli gercek maliyet mi? Ciroya esitse maliyet verisi yok demek
+    toplam_maliyet = sum(a['maliyet'] for a in aylar)
+    maliyet_var = (toplam_ciro > 0 and toplam_maliyet > 0
+                   and abs(toplam_maliyet - toplam_ciro) / toplam_ciro > 0.01)
 
     return jsonify({
         'aylar': aylar,
