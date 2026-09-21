@@ -20,12 +20,15 @@ def get_next_stok_id():
     return int(result[0]['minid']) - 1
 
 def get_next_alisveris_id():
-    result = query("SELECT TOP 1 nAlisverisID FROM tbAlisVeris ORDER BY nAlisverisID DESC")
+    result = query(
+        "SELECT TOP 1 nAlisverisID FROM tbAlisVeris "
+        "WHERE nAlisverisID LIKE 'D%' "
+        "ORDER BY CAST(SUBSTRING(nAlisverisID, 2, 8) AS INT) DESC"
+    )
     if result:
         last_id = result[0]['nAlisverisID'].strip()
-        prefix = ''.join(c for c in last_id if c.isalpha())
         num = int(''.join(c for c in last_id if c.isdigit()))
-        return f"{prefix}{num + 1:08d}"
+        return f"D{num + 1:08d}"
     return "D00000001"
 
 def get_next_fis_no(fis_tipi):
