@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Aylik Karlilik Trendi - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Aylik Karlilik Trendi <span style="font-size:13px;font-weight:400;color:#666">Son 12 Ay</span></h1>
+</div>
+
+<!-- OZET KARTLAR -->
+<div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px"></div>
+
+<!-- GRAFIK -->
+<div class="card" style="margin-bottom:16px">
+    <h2>Aylik Ciro <span id="kar-baslik" style="font-size:13px;font-weight:400;color:#666"></span></h2>
+    <div id="bar-chart" class="chart-container" style="height:200px;margin-bottom:12px"></div>
+</div>
+
+<!-- TABLO -->
+<div class="card">
+    <h2>Ay Detayi</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ay</th>
+                    <th style="text-align:right">Ciro</th>
+                    <th style="text-align:right" id="th-kar">Kar</th>
+                    <th style="text-align:right" id="th-marj">Marj %</th>
+                    <th style="text-align:center">Islem</th>
+                    <th style="text-align:right">Degisim</th>
+                </tr>
+            </thead>
+            <tbody id="karlilik-tbody"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', yukle);
+
+async function yukle() {
+    const data = await fetch('/api/rapor/karlilik').then(r => r.json());
+    const { aylar, ozet } = data;
+
+    renderOzet(ozet);
+    renderGrafik(aylar, ozet.maliyet_var);
+    renderTablo(aylar, ozet.maliyet_var);
+
+    if (!ozet.maliyet_var) {
+        document.getElementById('kar-baslik').textContent = '(Maliyet verisi yok — sadece ciro)';
+        document.getElementById('th-kar').style.display = 'none';
+        document.getElementById('th-marj').style.display = 'none';
+    }
+}
+
+function renderOzet(o) {
+    document.getElementById('ozet-cards').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value" style="color:#0d6efd">${formatMoney(o.toplam_ciro)}</div>
+            <div class="stat-label">12 Ay Toplam Ciro</div>
+        </div>
+        ${o.maliyet_var ? `
+        <div class="stat-card">
+            <div class="stat-value" style="color:#198754">${formatMoney(o.toplam_kar)}</div>
+            <div class="stat-label">12 Ay Toplam Kar</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:#198754">%${o.ort_marj}</div>
+            <div class="stat-label">Ort. Kar Marji</div>
+        </div>` : ''}
+        <div class="stat-card">
+            <div class="stat-value" style="font-size:16px">${o.en_iyi_ay}</div>
+            <div class="stat-label">En Iyi Ay</div>
+            <div style="font-size:12px;color:#666;margin-top:2px">${formatMoney(o.en_iyi_ciro)}</div>
+        </div>
+    `;
+}
+
+function renderGrafik(aylar, maliyetVar) {
+    const chart = document.getElementById('bar-chart');
+    chart.innerHTML = '';
+    if (!aylar.length) {
+        chart.innerHTML = '<div style="text-align:center;padding:60px;color:#999">Veri yok</div>';
+        return;
+    }
+    const maxCiro = Math.max(...aylar.map(a => a.ciro), 1);
+    aylar.forEach(a => {
+        const pct = (a.ciro / maxCiro) * 180;
+        const karPct = maliyetVar && a.ciro > 0 ? (a.kar / maxCiro) * 180 : 0;
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar';
+        bar.style.height = Math.max(pct, 6) + 'px';
+        bar.style.position = 'relative';
+        bar.title = `${a.etiket}: ${formatMoney(a.ciro)}${maliyetVar ? ' | Kar: ' + formatMoney(a.kar) : ''}`;
+        if (maliyetVar && karPct > 0) {
+            const karBar = document.createElement('div');
+            karBar.style.cssText = `position:absolute;bottom:0;left:0;right:0;height:${Math.max(karPct,2)}px;background:rgba(25,135,84,0.35);border-radius:4px`;
+            bar.appendChild(karBar);
+        }
+        bar.innerHTML += `<span class="bar-value">${formatShort(a.ciro)}</span><span class="bar-label">${a.etiket}</span>`;
+        chart.appendChild(bar);
+    });
+}
+
+function renderTablo(aylar, maliyetVar) {
+    document.getElementById('karlilik-tbody').innerHTML = aylar.map((a, i) => {
+        const buyumeRenk = a.buyume > 0 ? '#198754' : a.buyume < 0 ? '#dc3545' : '#999';
+        const buyumeOk = a.buyume > 0 ? '▲' : a.buyume < 0 ? '▼' : '';
+        const karHucre = maliyetVar
+            ? `<td style="text-align:right;color:${a.kar >= 0 ? '#198754' : '#dc3545'};font-weight:600">${formatMoney(a.kar)}</td>
+               <td style="text-align:right;color:#666">%${a.marj}</td>`
+            : '';
+        return `<tr style="${i === aylar.length - 1 ? 'font-weight:700;background:#f8f9fa' : ''}">
+            <td><strong>${a.etiket}</strong></td>
+            <td style="text-align:right">${formatMoney(a.ciro)}</td>
+            ${karHucre}
+            <td style="text-align:center;color:#666">${a.islem}</td>
+            <td style="text-align:right;color:${buyumeRenk}">
+                ${i > 0 ? `${buyumeOk} %${Math.abs(a.buyume)}` : '-'}
+            </td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:#999">Veri yok</td></tr>';
+}
+</script>
+{% endblock %}

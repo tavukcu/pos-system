@@ -816,6 +816,73 @@ def api_rapor_kasa():
     })
 
 
+# --- API: AYLIK KARLILIK TRENDI ---
+
+@app.route('/karlilik')
+def karlilik():
+    return render_template('karlilik.html')
+
+@app.route('/api/rapor/karlilik')
+def api_rapor_karlilik():
+    rows = query(
+        "SELECT YEAR(dteFaturaTarihi) AS yil, MONTH(dteFaturaTarihi) AS ay, "
+        "COUNT(*) AS islem_adedi, "
+        "ISNULL(SUM(lNetTutar), 0) AS ciro, "
+        "ISNULL(SUM(lMalBedeli), 0) AS maliyet "
+        "FROM tbAlisVeris "
+        "WHERE dteFaturaTarihi >= DATEADD(MONTH, -12, GETDATE()) "
+        "AND lNetTutar > 0 AND lNetTutar < 10000000 "
+        "GROUP BY YEAR(dteFaturaTarihi), MONTH(dteFaturaTarihi) "
+        "ORDER BY yil, ay"
+    )
+
+    ay_adlari = ['', 'Oca', 'Sub', 'Mar', 'Nis', 'May', 'Haz',
+                 'Tem', 'Agu', 'Eyl', 'Eki', 'Kas', 'Ara']
+
+    aylar = []
+    for r in rows:
+        ciro = float(r['ciro'])
+        maliyet = float(r['maliyet'])
+        kar = ciro - maliyet
+        marj = round(kar / ciro * 100, 1) if ciro > 0 else 0
+        aylar.append({
+            'etiket': f"{ay_adlari[int(r['ay'])]} {str(int(r['yil']))[2:]}",
+            'yil': int(r['yil']),
+            'ay': int(r['ay']),
+            'islem': int(r['islem_adedi']),
+            'ciro': round(ciro, 2),
+            'maliyet': round(maliyet, 2),
+            'kar': round(kar, 2),
+            'marj': marj,
+        })
+
+    # Ay bazinda buyume
+    for i in range(1, len(aylar)):
+        onceki = aylar[i-1]['ciro']
+        su_an = aylar[i]['ciro']
+        aylar[i]['buyume'] = round((su_an - onceki) / onceki * 100, 1) if onceki > 0 else 0
+    if aylar:
+        aylar[0]['buyume'] = 0
+
+    toplam_ciro = sum(a['ciro'] for a in aylar)
+    toplam_kar = sum(a['kar'] for a in aylar)
+    ort_marj = round(toplam_kar / toplam_ciro * 100, 1) if toplam_ciro > 0 else 0
+    en_iyi = max(aylar, key=lambda x: x['ciro']) if aylar else None
+    maliyet_var = toplam_kar != toplam_ciro  # lMalBedeli dolu mu?
+
+    return jsonify({
+        'aylar': aylar,
+        'ozet': {
+            'toplam_ciro': round(toplam_ciro, 2),
+            'toplam_kar': round(toplam_kar, 2),
+            'ort_marj': ort_marj,
+            'en_iyi_ay': en_iyi['etiket'] if en_iyi else '-',
+            'en_iyi_ciro': en_iyi['ciro'] if en_iyi else 0,
+            'maliyet_var': maliyet_var,
+        }
+    })
+
+
 # --- API: FIYAT YONETIMI ---
 
 @app.route('/fiyat-yonetimi')
