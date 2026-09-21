@@ -496,6 +496,7 @@ def api_rapor_son_satislar():
         'id': r['nAlisverisID'].strip(),
         'fis_tipi': (r['sFisTipi'] or '').strip(),
         'tarih': r['dteFaturaTarihi'].strftime('%d.%m.%Y') if r['dteFaturaTarihi'] else '',
+        'saat': r['dteKayitTarihi'].strftime('%H:%M') if r['dteKayitTarihi'] else '',
         'fis_no': int(r['lFaturaNo']),
         'musteri': f"{(r['sAlisverisYapanAdi'] or '').strip()} {(r['sAlisverisYapanSoyadi'] or '').strip()}".strip(),
         'miktar': float(r['lToplamMiktar']),

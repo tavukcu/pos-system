@@ -1,99 +1,195 @@
 {% extends "base.html" %}
 {% block title %}Ana Sayfa - POS{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>Ana Sayfa</h1>
-    <span id="today-date"></span>
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+        <h1 style="margin:0">Ana Sayfa</h1>
+        <div id="today-date" style="color:#666;font-size:14px;margin-top:2px"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="/pos" class="btn btn-success btn-lg">&#9654; Satis Yap</a>
+        <a href="/canli" class="btn btn-primary">&#9679; Canli</a>
+        <a href="/borclu" class="btn btn-secondary">&#9888; Borclu</a>
+        <a href="/kasa-raporu" class="btn btn-secondary">&#9781; Kasa</a>
+    </div>
 </div>
 
-<div class="grid grid-4" id="stats">
-    <div class="stat-card">
-        <div class="label">Bugunun Cirosu</div>
-        <div class="value success" id="st-ciro">--</div>
+<!-- BUGUN OZET -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px" id="stat-cards">
+    <div class="stat-card"><div class="stat-label">Bugun Ciro</div><div class="stat-value success" id="st-ciro">--</div><div class="stat-change" id="st-ciro-change"></div></div>
+    <div class="stat-card"><div class="stat-label">Islem Adedi</div><div class="stat-value primary" id="st-islem">--</div><div class="stat-change" id="st-islem-change"></div></div>
+    <div class="stat-card"><div class="stat-label">Ort. Fis</div><div class="stat-value warning" id="st-ort">--</div><div class="stat-change" id="st-ort-change"></div></div>
+    <div class="stat-card"><div class="stat-label">Nakit</div><div class="stat-value" id="st-nakit" style="color:#198754">--</div><div class="stat-change" id="st-nakit-label"></div></div>
+    <div class="stat-card"><div class="stat-label">Kart</div><div class="stat-value" id="st-kart" style="color:#0d6efd">--</div><div class="stat-change" id="st-kart-label"></div></div>
+    <div class="stat-card" style="cursor:pointer" onclick="location='/borclu'"><div class="stat-label">Toplam Borc</div><div class="stat-value" id="st-borc" style="color:#dc3545">--</div><div class="stat-change" id="st-borc-label"></div></div>
+</div>
+
+<div class="grid grid-2">
+    <!-- SAATLIK GRAFIK -->
+    <div class="card">
+        <h2>Bugun Saatlik Dagilim</h2>
+        <div class="chart-container" id="chart-saat" style="height:200px;margin-bottom:24px"></div>
+        <div id="saat-ozet" style="display:flex;gap:16px;font-size:13px;color:#666"></div>
     </div>
-    <div class="stat-card">
-        <div class="label">Islem Adedi</div>
-        <div class="value primary" id="st-islem">--</div>
-    </div>
-    <div class="stat-card">
-        <div class="label">Ortalama Fis</div>
-        <div class="value warning" id="st-ort">--</div>
-    </div>
-    <div class="stat-card">
-        <div class="label">Tarih</div>
-        <div class="value" id="st-tarih" style="font-size:18px">--</div>
+
+    <!-- HAFTALIK KARSILASTIRMA -->
+    <div class="card">
+        <h2>Bu Hafta <span style="font-size:13px;font-weight:400;color:#666">vs Gecen Hafta</span></h2>
+        <div class="chart-container" id="chart-hafta" style="height:200px;margin-bottom:8px"></div>
+        <div id="hafta-ozet" style="font-size:13px;color:#666;text-align:center"></div>
     </div>
 </div>
 
 <div class="grid grid-2">
+    <!-- EN COK SATAN -->
     <div class="card">
-        <h2>Aylik Ciro Grafigi</h2>
-        <div class="chart-container" id="chart-aylik"></div>
-    </div>
-    <div class="card">
-        <h2>En Cok Satan Urunler (30 Gun)</h2>
+        <h2>En Cok Satan (30 Gun)</h2>
         <div class="table-wrapper">
             <table>
-                <thead><tr><th>Urun</th><th>Miktar</th><th>Tutar</th></tr></thead>
+                <thead><tr><th>#</th><th>Urun</th><th style="text-align:right">Tutar</th></tr></thead>
                 <tbody id="top-products"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SON SATISLAR -->
+    <div class="card">
+        <h2>Son Satislar</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Fis</th><th>Saat</th><th>Musteri</th><th style="text-align:right">Tutar</th></tr></thead>
+                <tbody id="recent-sales"></tbody>
             </table>
         </div>
     </div>
 </div>
 
-<div class="card">
-    <h2>Son Satislar</h2>
-    <div class="table-wrapper">
-        <table>
-            <thead><tr><th>Fis No</th><th>Tarih</th><th>Tip</th><th>Musteri</th><th>Tutar</th></tr></thead>
-            <tbody id="recent-sales"></tbody>
-        </table>
-    </div>
-</div>
+<style>
+.stat-change { font-size:12px; color:#666; margin-top:3px; min-height:16px; }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('today-date').textContent = new Date().toLocaleDateString('tr-TR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-    // Daily stats
-    const daily = await fetch('/api/rapor/gunluk?tarih=' + today).then(r => r.json());
+    document.getElementById('today-date').textContent =
+        new Date().toLocaleDateString('tr-TR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+    // Paralel yukle
+    const [daily, dun, kasa, borclu, top, hafta] = await Promise.all([
+        fetch('/api/rapor/gunluk?tarih=' + today).then(r => r.json()),
+        fetch('/api/rapor/gunluk?tarih=' + yesterday).then(r => r.json()),
+        fetch('/api/rapor/kasa?tarih=' + today).then(r => r.json()),
+        fetch('/api/borclu').then(r => r.json()),
+        fetch('/api/rapor/en_cok_satan?gun=30').then(r => r.json()),
+        fetch('/api/rapor/karsilastirma?tip=hafta').then(r => r.json()),
+    ]);
+
+    // --- STAT KARTLAR ---
+    function degisim(yeni, eski) {
+        if (!eski) return '';
+        const pct = ((yeni - eski) / eski * 100);
+        const renk = pct >= 0 ? '#198754' : '#dc3545';
+        const isaret = pct >= 0 ? '▲' : '▼';
+        return `<span style="color:${renk}">${isaret} ${Math.abs(pct).toFixed(1)}% dune gore</span>`;
+    }
+
     document.getElementById('st-ciro').textContent = formatMoney(daily.toplam_ciro);
+    document.getElementById('st-ciro-change').innerHTML = degisim(daily.toplam_ciro, dun.toplam_ciro);
+
     document.getElementById('st-islem').textContent = daily.islem_adedi;
+    document.getElementById('st-islem-change').innerHTML = degisim(daily.islem_adedi, dun.islem_adedi);
+
     document.getElementById('st-ort').textContent = formatMoney(daily.ort_fis);
-    document.getElementById('st-tarih').textContent = new Date().toLocaleDateString('tr-TR');
+    document.getElementById('st-ort-change').innerHTML = degisim(daily.ort_fis, dun.ort_fis);
 
-    // Monthly chart
-    const year = new Date().getFullYear();
-    const monthly = await fetch('/api/rapor/aylik?yil=' + year).then(r => r.json());
-    const chartEl = document.getElementById('chart-aylik');
-    const maxCiro = Math.max(...monthly.map(m => m.toplam_ciro), 1);
-    const aylar = ['Oca','Sub','Mar','Nis','May','Haz','Tem','Agu','Eyl','Eki','Kas','Ara'];
-    monthly.forEach(m => {
-        const pct = (m.toplam_ciro / maxCiro) * 250;
-        const bar = document.createElement('div');
-        bar.className = 'chart-bar';
-        bar.style.height = Math.max(pct, 10) + 'px';
-        bar.innerHTML = `<span class="bar-value">${formatShort(m.toplam_ciro)}</span><span class="bar-label">${aylar[m.ay-1]}</span>`;
-        chartEl.appendChild(bar);
-    });
+    document.getElementById('st-nakit').textContent = formatMoney(kasa.ozet.nakit.tutar);
+    document.getElementById('st-nakit-label').textContent = kasa.ozet.nakit.islem + ' islem';
 
-    // Top products
-    const top = await fetch('/api/rapor/en_cok_satan?gun=30').then(r => r.json());
-    const topEl = document.getElementById('top-products');
-    top.slice(0, 10).forEach(p => {
-        topEl.innerHTML += `<tr><td>${p.urun}</td><td>${p.miktar.toFixed(1)}</td><td>${formatMoney(p.tutar)}</td></tr>`;
-    });
+    document.getElementById('st-kart').textContent = formatMoney(kasa.ozet.kart.tutar);
+    document.getElementById('st-kart-label').textContent = kasa.ozet.kart.islem + ' islem';
 
-    // Recent sales
+    const toplamBorc = borclu.reduce((s, m) => s + m.toplam_borc, 0);
+    document.getElementById('st-borc').textContent = formatMoney(toplamBorc);
+    document.getElementById('st-borc-label').textContent = borclu.length + ' borclu musteri';
+
+    // --- SAATLIK GRAFIK ---
+    const saatChart = document.getElementById('chart-saat');
+    if (kasa.saatlik.length) {
+        const maxT = Math.max(...kasa.saatlik.map(s => s.tutar), 1);
+        kasa.saatlik.forEach(s => {
+            const pct = (s.tutar / maxT) * 170;
+            const bar = document.createElement('div');
+            bar.className = 'chart-bar';
+            bar.style.height = Math.max(pct, 4) + 'px';
+            bar.innerHTML = `<span class="bar-value">${formatShort(s.tutar)}</span><span class="bar-label">${s.saat}</span>`;
+            bar.title = s.saat + ':00 - ' + formatMoney(s.tutar) + ' (' + s.islem + ' islem)';
+            saatChart.appendChild(bar);
+        });
+        const enYogun = kasa.saatlik.reduce((a, b) => a.tutar > b.tutar ? a : b);
+        document.getElementById('saat-ozet').innerHTML =
+            `<span>En yogun saat: <strong>${enYogun.saat}:00</strong> (${formatMoney(enYogun.tutar)})</span>`;
+    } else {
+        saatChart.innerHTML = '<div style="text-align:center;padding:60px;color:#999">Bugün henüz satış yok</div>';
+    }
+
+    // --- HAFTALIK KARSILASTIRMA ---
+    const haftaChart = document.getElementById('chart-hafta');
+    const tumCirolar = [...hafta.bu_donem.map(r => r.ciro), ...hafta.gecen_donem.map(r => r.ciro)];
+    const maxH = Math.max(...tumCirolar, 1);
+    const len = Math.max(hafta.bu_donem.length, hafta.gecen_donem.length);
+    for (let i = 0; i < len; i++) {
+        const bu = hafta.bu_donem[i] || { ciro: 0, etiket: '' };
+        const g = hafta.gecen_donem[i] || { ciro: 0, etiket: '' };
+        const group = document.createElement('div');
+        group.style.cssText = 'display:flex;flex-direction:column;align-items:center;flex:1;gap:2px';
+        const bars = document.createElement('div');
+        bars.style.cssText = 'display:flex;gap:2px;align-items:flex-end;height:170px';
+        const b1 = document.createElement('div');
+        b1.style.cssText = `width:16px;background:#0d6efd;border-radius:3px 3px 0 0;height:${Math.max((bu.ciro/maxH)*160,bu.ciro>0?3:0)}px`;
+        b1.title = bu.etiket + ': ' + formatMoney(bu.ciro);
+        const b2 = document.createElement('div');
+        b2.style.cssText = `width:16px;background:#dee2e6;border-radius:3px 3px 0 0;height:${Math.max((g.ciro/maxH)*160,g.ciro>0?3:0)}px`;
+        b2.title = 'Gecen: ' + formatMoney(g.ciro);
+        bars.appendChild(b1); bars.appendChild(b2);
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:10px;color:#666;text-align:center;margin-top:4px';
+        lbl.textContent = bu.etiket || g.etiket;
+        group.appendChild(bars); group.appendChild(lbl);
+        haftaChart.appendChild(group);
+    }
+    const buHaftaCiro = hafta.bu_donem.reduce((s, r) => s + r.ciro, 0);
+    const gHaftaCiro = hafta.gecen_donem.reduce((s, r) => s + r.ciro, 0);
+    const hPct = gHaftaCiro > 0 ? ((buHaftaCiro - gHaftaCiro) / gHaftaCiro * 100) : 0;
+    const hRenk = hPct >= 0 ? '#198754' : '#dc3545';
+    document.getElementById('hafta-ozet').innerHTML =
+        `Bu hafta <strong>${formatMoney(buHaftaCiro)}</strong> — ` +
+        `<span style="color:${hRenk}">${hPct >= 0 ? '▲' : '▼'} ${Math.abs(hPct).toFixed(1)}% gecen haftaya gore</span>`;
+
+    // --- EN COK SATAN ---
+    document.getElementById('top-products').innerHTML = top.slice(0, 8).map((p, i) => `
+        <tr>
+            <td style="color:#666;font-size:12px">${i + 1}</td>
+            <td><strong>${p.urun}</strong></td>
+            <td style="text-align:right">${formatMoney(p.tutar)}</td>
+        </tr>`).join('');
+
+    // --- SON SATISLAR ---
     const sales = await fetch('/api/rapor/son_satislar').then(r => r.json());
-    const salesEl = document.getElementById('recent-sales');
-    sales.slice(0, 15).forEach(s => {
-        const tipBadge = s.fis_tipi === 'P' ? '<span class="badge badge-success">Pesin</span>' : '<span class="badge badge-warning">Kredi</span>';
-        salesEl.innerHTML += `<tr style="cursor:pointer" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')"><td>${s.fis_no}</td><td>${s.tarih}</td><td>${tipBadge}</td><td>${s.musteri || '-'}</td><td><strong>${formatMoney(s.tutar)}</strong></td></tr>`;
-    });
+    const odemeRenk = { P: '#198754', K: '#0d6efd', V: '#dc3545' };
+    document.getElementById('recent-sales').innerHTML = sales.slice(0, 12).map(s => {
+        const saat = s.saat || '';
+        return `<tr style="cursor:pointer" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')">
+            <td>#${s.fis_no}</td>
+            <td style="color:#666">${saat || s.tarih}</td>
+            <td>${s.musteri || '<span style="color:#bbb">-</span>'}</td>
+            <td style="text-align:right;font-weight:700;color:${odemeRenk[s.fis_tipi]||'#333'}">${formatMoney(s.tutar)}</td>
+        </tr>`;
+    }).join('');
 });
 </script>
 {% endblock %}
