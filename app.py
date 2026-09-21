@@ -520,6 +520,62 @@ def api_rapor_satis_detay():
 def urun_rapor():
     return render_template('urun_rapor.html')
 
+
+# --- API: BORCLU MUSTERI TAKIP ---
+
+@app.route('/borclu')
+def borclu():
+    return render_template('borclu.html')
+
+@app.route('/api/borclu')
+def api_borclu():
+    rows = query(
+        "SELECT m.nMusteriID, m.sAdi, m.sSoyadi, m.sTelefon1, "
+        "COUNT(*) AS veresiye_sayisi, "
+        "ISNULL(SUM(a.lNetTutar), 0) AS toplam_borc, "
+        "MAX(a.dteKayitTarihi) AS son_islem "
+        "FROM tbAlisVeris a "
+        "JOIN tbMusteri m ON a.nMusteriID = m.nMusteriID "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE RTRIM(o.sOdemeSekli) = 'V' "
+        "AND a.lNetTutar < 10000000 AND a.nMusteriID > 0 "
+        "GROUP BY m.nMusteriID, m.sAdi, m.sSoyadi, m.sTelefon1 "
+        "ORDER BY toplam_borc DESC"
+    )
+    return jsonify([{
+        'id': r['nMusteriID'],
+        'adi': (r['sAdi'] or '').strip(),
+        'soyadi': (r['sSoyadi'] or '').strip(),
+        'telefon': (r['sTelefon1'] or '').strip(),
+        'veresiye_sayisi': int(r['veresiye_sayisi']),
+        'toplam_borc': float(r['toplam_borc']),
+        'son_islem': r['son_islem'].strftime('%d.%m.%Y') if r['son_islem'] else '',
+    } for r in rows])
+
+@app.route('/api/borclu/<int:musteri_id>')
+def api_borclu_detay(musteri_id):
+    rows = query(
+        "SELECT a.nAlisverisID, a.lFaturaNo, a.dteFaturaTarihi, a.dteKayitTarihi, "
+        "a.lNetTutar, a.lToplamMiktar, "
+        "ISNULL(k.sAdi, a.sKasiyerRumuzu) AS eleman_adi "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "LEFT JOIN tbKasiyer k ON RTRIM(a.sKasiyerRumuzu) = RTRIM(k.sKasiyerRumuzu) "
+        "WHERE a.nMusteriID = ? AND RTRIM(o.sOdemeSekli) = 'V' "
+        "AND a.lNetTutar < 10000000 "
+        "ORDER BY a.dteKayitTarihi DESC",
+        [musteri_id]
+    )
+    return jsonify([{
+        'id': r['nAlisverisID'].strip(),
+        'fis_no': int(r['lFaturaNo']),
+        'tarih': r['dteFaturaTarihi'].strftime('%d.%m.%Y') if r['dteFaturaTarihi'] else '',
+        'saat': r['dteKayitTarihi'].strftime('%H:%M') if r['dteKayitTarihi'] else '',
+        'tutar': float(r['lNetTutar']),
+        'miktar': float(r['lToplamMiktar']),
+        'eleman': (r['eleman_adi'] or '').strip(),
+    } for r in rows])
+
 @app.route('/api/rapor/urun_bazli')
 def api_rapor_urun_bazli():
     baslangic = request.args.get('baslangic', date.today().isoformat())

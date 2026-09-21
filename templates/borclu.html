@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Borclu Musteriler - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Borclu Musteriler</h1>
+</div>
+
+<div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px"></div>
+
+<div class="search-bar">
+    <input type="text" id="search" placeholder="Ad, soyad veya telefon..." oninput="filterTable()">
+</div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table id="borclu-table">
+            <thead>
+                <tr>
+                    <th>Musteri</th>
+                    <th>Telefon</th>
+                    <th style="text-align:center">Islem</th>
+                    <th style="text-align:right">Toplam Borc</th>
+                    <th>Son Islem</th>
+                </tr>
+            </thead>
+            <tbody id="borclu-tbody"></tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="3" style="text-align:right">GENEL TOPLAM</th>
+                    <th id="genel-toplam" style="text-align:right"></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- DETAY MODAL -->
+<div id="detay-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:640px;width:90%;max-height:85vh;overflow-y:auto;position:relative">
+        <button onclick="closeDetay()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 id="detay-title" style="margin:0 0 4px"></h3>
+        <p id="detay-telefon" style="margin:0 0 16px;color:#666;font-size:14px"></p>
+        <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600">Toplam Borc:</span>
+            <span id="detay-toplam" style="font-size:20px;font-weight:700;color:#dc3545"></span>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Tarih</th><th>Saat</th><th>Fis No</th><th>Eleman</th><th style="text-align:right">Tutar</th><th></th></tr></thead>
+                <tbody id="detay-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allData = [];
+
+document.addEventListener('DOMContentLoaded', loadBorclu);
+
+async function loadBorclu() {
+    const data = await fetch('/api/borclu').then(r => r.json());
+    allData = data;
+    renderOzet(data);
+    renderTable(data);
+}
+
+function renderOzet(data) {
+    const toplamBorc = data.reduce((s, m) => s + m.toplam_borc, 0);
+    const kisiSayisi = data.length;
+    const topIslem = data.reduce((s, m) => s + m.veresiye_sayisi, 0);
+
+    document.getElementById('ozet-cards').innerHTML = `
+        <div class="stat-card"><div class="stat-value" style="color:#dc3545">${formatMoney(toplamBorc)}</div><div class="stat-label">Toplam Borc</div></div>
+        <div class="stat-card"><div class="stat-value">${kisiSayisi}</div><div class="stat-label">Borclu Musteri</div></div>
+        <div class="stat-card"><div class="stat-value">${topIslem}</div><div class="stat-label">Veresiye Islem</div></div>
+    `;
+}
+
+function renderTable(data) {
+    const tbody = document.getElementById('borclu-tbody');
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:#999">Borclu musteri bulunamadi</td></tr>';
+        document.getElementById('genel-toplam').textContent = '';
+        return;
+    }
+    let genel = 0;
+    tbody.innerHTML = data.map(m => {
+        genel += m.toplam_borc;
+        const renk = m.toplam_borc > 1000 ? '#dc3545' : m.toplam_borc > 200 ? '#fd7e14' : '#333';
+        return `<tr style="cursor:pointer" onclick="showDetay(${m.id}, '${escHtml(m.adi + ' ' + m.soyadi)}', '${escHtml(m.telefon)}', ${m.toplam_borc})">
+            <td><strong>${escHtml(m.adi)} ${escHtml(m.soyadi)}</strong></td>
+            <td>${escHtml(m.telefon)}</td>
+            <td style="text-align:center">${m.veresiye_sayisi}</td>
+            <td style="text-align:right;font-weight:700;color:${renk}">${formatMoney(m.toplam_borc)}</td>
+            <td>${m.son_islem}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('genel-toplam').innerHTML = `<strong style="color:#dc3545">${formatMoney(genel)}</strong>`;
+}
+
+function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase();
+    if (!q) { renderTable(allData); return; }
+    renderTable(allData.filter(m =>
+        (m.adi + ' ' + m.soyadi).toLowerCase().includes(q) ||
+        m.telefon.includes(q)
+    ));
+}
+
+async function showDetay(id, ad, telefon, toplam) {
+    document.getElementById('detay-title').textContent = ad;
+    document.getElementById('detay-telefon').textContent = telefon || 'Telefon yok';
+    document.getElementById('detay-toplam').textContent = formatMoney(toplam);
+    document.getElementById('detay-tbody').innerHTML = '<tr><td colspan="6">Yukleniyor...</td></tr>';
+    document.getElementById('detay-modal').style.display = 'flex';
+
+    const data = await fetch('/api/borclu/' + id).then(r => r.json());
+    document.getElementById('detay-tbody').innerHTML = data.map(d => `
+        <tr>
+            <td>${d.tarih}</td>
+            <td>${d.saat}</td>
+            <td>#${d.fis_no}</td>
+            <td>${escHtml(d.eleman)}</td>
+            <td style="text-align:right;font-weight:600">${formatMoney(d.tutar)}</td>
+            <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:12px" onclick="showSatisDetay('${d.id}','${d.fis_no}','${d.tarih}')">Detay</button></td>
+        </tr>
+    `).join('') || '<tr><td colspan="6">Kayit bulunamadi</td></tr>';
+}
+
+function closeDetay() {
+    document.getElementById('detay-modal').style.display = 'none';
+}
+document.getElementById('detay-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetay();
+});
+
+function escHtml(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

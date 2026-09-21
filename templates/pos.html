@@ -40,6 +40,7 @@
             <select id="pay-method">
                 <option value="N">Nakit</option>
                 <option value="K">Kredi Karti</option>
+                <option value="V">Veresiye</option>
             </select>
         </div>
         <div class="form-group">
@@ -500,9 +501,15 @@ function selectCustomer(id, adi, soyadi) {
 }
 
 async function confirmPayment() {
+    const odemeSekli = document.getElementById('pay-method').value;
+    if (odemeSekli === 'V' && !parseInt(document.getElementById('pay-customer-id').value)) {
+        alert('Veresiye icin musteri secmek zorunludur!');
+        document.getElementById('pay-customer').focus();
+        return;
+    }
     const payload = {
         kalemler: cart.map(c => ({ stok_id: c.id, miktar: c.miktar, fiyat: c.fiyat })),
-        odeme_sekli: document.getElementById('pay-method').value,
+        odeme_sekli: odemeSekli,
         musteri_id: parseInt(document.getElementById('pay-customer-id').value) || 0,
         musteri_adi: document.getElementById('pay-customer-name').value,
         musteri_soyadi: document.getElementById('pay-customer-surname').value,
