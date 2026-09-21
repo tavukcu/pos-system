@@ -16,6 +16,7 @@
             <input type="date" id="tarih-bit" />
         </div>
         <button class="btn btn-primary" onclick="yukle()">Getir</button>
+        <button class="btn btn-secondary" onclick="exportExcel()">&#8595; Excel</button>
     </div>
     <div class="hizli-filtre">
         <button class="btn btn-secondary btn-sm" onclick="hizli(0)">Bugun</button>
@@ -98,6 +99,13 @@ async function yukle() {
             <td><span class="oran-bar" style="width:${Math.max(u.oran, 1)}px"></span>${u.oran}%</td>
         </tr>`
     ).join('') || '<tr><td colspan="5">Veri bulunamadi</td></tr>';
+}
+
+function exportExcel() {
+    const bas = document.getElementById('tarih-bas').value;
+    const bit = document.getElementById('tarih-bit').value;
+    if (!bas || !bit) { alert('Tarih secin'); return; }
+    window.location = `/api/export/urun_rapor?baslangic=${bas}&bitis=${bit}`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

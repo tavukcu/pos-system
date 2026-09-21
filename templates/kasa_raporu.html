@@ -6,6 +6,7 @@
     <div style="display:flex;align-items:center;gap:8px">
         <input type="date" id="tarih-input" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px">
         <button class="btn btn-primary" onclick="loadKasa()">Getir</button>
+        <a id="export-btn" href="#" class="btn btn-secondary" onclick="exportKasa(event)">&#8595; Excel</a>
     </div>
 </div>
 
@@ -48,6 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.getElementById('tarih-input').addEventListener('keydown', e => { if (e.key === 'Enter') loadKasa(); });
+
+function exportKasa(e) {
+    e.preventDefault();
+    const tarih = document.getElementById('tarih-input').value || new Date().toISOString().split('T')[0];
+    window.location = '/api/export/kasa?tarih=' + tarih;
+}
 
 async function loadKasa() {
     const tarih = document.getElementById('tarih-input').value;

@@ -7,8 +7,9 @@
 
 <div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px"></div>
 
-<div class="search-bar">
-    <input type="text" id="search" placeholder="Ad, soyad veya telefon..." oninput="filterTable()">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <input type="text" id="search" placeholder="Ad, soyad veya telefon..." oninput="filterTable()" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #dee2e6;border-radius:8px">
+    <a id="export-btn" href="/api/export/borclu" class="btn btn-secondary" style="white-space:nowrap">&#8595; Excel</a>
 </div>
 
 <div class="card">

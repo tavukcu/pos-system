@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from config import query, execute, get_connection, adapt_sql
 from datetime import datetime, date
 import traceback
 import threading
 import requests as req
 import os
+import io
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
@@ -965,6 +966,180 @@ def api_rapor_canli():
             'magaza': (r['sMagaza'] or '').strip(),
         } for r in son_satislar],
     })
+
+
+# --- EXCEL EXPORT ---
+
+def make_excel(sheets):
+    """sheets: [{'baslik': str, 'sutunlar': [str], 'satirlar': [[val,...]]}]"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    header_fill = PatternFill('solid', fgColor='1F4E79')
+    header_font = Font(bold=True, color='FFFFFF', size=11)
+    thin = Side(style='thin', color='D0D0D0')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for sh in sheets:
+        ws = wb.create_sheet(title=sh['baslik'][:31])
+        cols = sh['sutunlar']
+        # Baslik satiri
+        for ci, col in enumerate(cols, 1):
+            cell = ws.cell(row=1, column=ci, value=col)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = border
+        ws.row_dimensions[1].height = 20
+        # Veri satirlari
+        for ri, row in enumerate(sh['satirlar'], 2):
+            alt = ri % 2 == 0
+            for ci, val in enumerate(row, 1):
+                cell = ws.cell(row=ri, column=ci, value=val)
+                cell.border = border
+                if alt:
+                    cell.fill = PatternFill('solid', fgColor='EEF4FB')
+                if isinstance(val, float):
+                    cell.number_format = '#,##0.00'
+                    cell.alignment = Alignment(horizontal='right')
+        # Kolon genislikleri
+        for ci, col in enumerate(cols, 1):
+            max_len = max([len(str(col))] + [len(str(r[ci-1] or '')) for r in sh['satirlar']], default=10)
+            ws.column_dimensions[ws.cell(1, ci).column_letter].width = min(max_len + 3, 40)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+def excel_response(buf, dosya_adi):
+    return Response(
+        buf.read(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename="{dosya_adi}"'}
+    )
+
+@app.route('/api/export/borclu')
+def export_borclu():
+    rows = query(
+        "SELECT m.nMusteriID, m.sAdi, m.sSoyadi, m.sTelefon1, "
+        "COUNT(*) AS veresiye_sayisi, ISNULL(SUM(a.lNetTutar), 0) AS toplam_borc, "
+        "MAX(a.dteKayitTarihi) AS son_islem "
+        "FROM tbAlisVeris a JOIN tbMusteri m ON a.nMusteriID = m.nMusteriID "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE RTRIM(o.sOdemeSekli) = 'V' AND a.lNetTutar < 10000000 AND a.nMusteriID > 0 "
+        "GROUP BY m.nMusteriID, m.sAdi, m.sSoyadi, m.sTelefon1 ORDER BY toplam_borc DESC"
+    )
+    satirlar = [[
+        (r['sAdi'] or '').strip() + ' ' + (r['sSoyadi'] or '').strip(),
+        (r['sTelefon1'] or '').strip(),
+        int(r['veresiye_sayisi']),
+        round(float(r['toplam_borc']), 2),
+        r['son_islem'].strftime('%d.%m.%Y') if r['son_islem'] else '',
+    ] for r in rows]
+    toplam = sum(s[3] for s in satirlar)
+    satirlar.append(['TOPLAM', '', '', toplam, ''])
+    buf = make_excel([{
+        'baslik': 'Borclu Musteriler',
+        'sutunlar': ['Musteri', 'Telefon', 'Veresiye Islem', 'Toplam Borc (TL)', 'Son Islem'],
+        'satirlar': satirlar,
+    }])
+    tarih = date.today().strftime('%Y%m%d')
+    return excel_response(buf, f'borclu_{tarih}.xlsx')
+
+@app.route('/api/export/kasa')
+def export_kasa():
+    tarih = request.args.get('tarih', date.today().isoformat())
+    # Ozet
+    ozet_rows = query(
+        "SELECT RTRIM(o.sOdemeSekli) AS sekil, COUNT(*) AS islem_adedi, "
+        "ISNULL(SUM(a.lNetTutar), 0) AS toplam "
+        "FROM tbAlisVeris a JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? AND a.lNetTutar < 10000000 "
+        "GROUP BY RTRIM(o.sOdemeSekli)", [tarih]
+    )
+    sekil_ad = {'N': 'Nakit', 'K': 'Kredi Karti', 'V': 'Veresiye', 'T': 'Tahsilat'}
+    ozet_satirlar = [[sekil_ad.get((r['sekil'] or '').strip(), r['sekil']),
+                      int(r['islem_adedi']), round(float(r['toplam']), 2)] for r in ozet_rows]
+    # Kasiyere gore
+    k_rows = query(
+        "SELECT ISNULL(k.sAdi, RTRIM(a.sKasiyerRumuzu)) AS eleman_adi, "
+        "RTRIM(o.sOdemeSekli) AS sekil, COUNT(*) AS islem_adedi, "
+        "ISNULL(SUM(a.lNetTutar), 0) AS toplam "
+        "FROM tbAlisVeris a JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "LEFT JOIN tbKasiyer k ON RTRIM(a.sKasiyerRumuzu) = RTRIM(k.sKasiyerRumuzu) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? AND a.lNetTutar < 10000000 "
+        "GROUP BY ISNULL(k.sAdi, RTRIM(a.sKasiyerRumuzu)), RTRIM(o.sOdemeSekli) "
+        "ORDER BY eleman_adi", [tarih]
+    )
+    k_satirlar = [[(r['eleman_adi'] or '').strip(),
+                   sekil_ad.get((r['sekil'] or '').strip(), r['sekil']),
+                   int(r['islem_adedi']), round(float(r['toplam']), 2)] for r in k_rows]
+    buf = make_excel([
+        {'baslik': 'Ozet', 'sutunlar': ['Odeme Sekli', 'Islem Adedi', 'Tutar (TL)'], 'satirlar': ozet_satirlar},
+        {'baslik': 'Kasiyere Gore', 'sutunlar': ['Kasiyer', 'Odeme Sekli', 'Islem', 'Tutar (TL)'], 'satirlar': k_satirlar},
+    ])
+    return excel_response(buf, f'kasa_{tarih}.xlsx')
+
+@app.route('/api/export/urun_rapor')
+def export_urun_rapor():
+    baslangic = request.args.get('baslangic', date.today().isoformat())
+    bitis = request.args.get('bitis', date.today().isoformat())
+    rows = query(
+        "SELECT s.sAciklama, s.sKodu, s.sBirimCinsi1, "
+        "SUM(d.lCikisMiktar1) AS toplam_miktar, SUM(d.lCikisTutar) AS toplam_tutar, "
+        "COUNT(DISTINCT d.nAlisverisID) AS islem_adedi "
+        "FROM tbStokFisiDetayi d JOIN tbStok s ON d.nStokID = s.nStokID "
+        "WHERE CAST(d.dteIslemTarihi AS DATE) >= ? AND CAST(d.dteIslemTarihi AS DATE) <= ? "
+        "AND d.lCikisTutar < 10000000 AND d.nGirisCikis = 3 "
+        "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1 ORDER BY toplam_tutar DESC",
+        [baslangic, bitis]
+    )
+    toplam_ciro = sum(float(r['toplam_tutar']) for r in rows)
+    satirlar = [[
+        (r['sAciklama'] or '').strip(), (r['sKodu'] or '').strip(),
+        (r['sBirimCinsi1'] or '').strip(),
+        round(float(r['toplam_miktar']), 3), round(float(r['toplam_tutar']), 2),
+        int(r['islem_adedi']),
+        round(float(r['toplam_tutar']) / toplam_ciro * 100, 1) if toplam_ciro > 0 else 0,
+    ] for r in rows]
+    buf = make_excel([{
+        'baslik': 'Urun Raporu',
+        'sutunlar': ['Urun Adi', 'Kodu', 'Birim', 'Miktar', 'Tutar (TL)', 'Islem', 'Oran (%)'],
+        'satirlar': satirlar,
+    }])
+    return excel_response(buf, f'urun_raporu_{baslangic}_{bitis}.xlsx')
+
+@app.route('/api/export/musteri/<int:musteri_id>')
+def export_musteri(musteri_id):
+    m = query("SELECT sAdi, sSoyadi FROM tbMusteri WHERE nMusteriID = ?", [musteri_id])
+    ad = ((m[0]['sAdi'] or '') + ' ' + (m[0]['sSoyadi'] or '')).strip() if m else str(musteri_id)
+    rows = query(
+        "SELECT a.lFaturaNo, a.dteFaturaTarihi, a.dteKayitTarihi, "
+        "a.lNetTutar, a.lToplamMiktar, RTRIM(ISNULL(o.sOdemeSekli,'')) AS odeme_sekli "
+        "FROM tbAlisVeris a "
+        "LEFT JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE a.nMusteriID = ? AND a.lNetTutar < 10000000 "
+        "ORDER BY a.dteKayitTarihi DESC", [musteri_id]
+    )
+    sekil_ad = {'N': 'Nakit', 'K': 'Kart', 'V': 'Veresiye', 'T': 'Odendi'}
+    satirlar = [[
+        a['dteFaturaTarihi'].strftime('%d.%m.%Y') if a['dteFaturaTarihi'] else '',
+        a['dteKayitTarihi'].strftime('%H:%M') if a['dteKayitTarihi'] else '',
+        int(a['lFaturaNo']),
+        sekil_ad.get((a['odeme_sekli'] or '').strip(), a['odeme_sekli']),
+        round(float(a['lNetTutar']), 2),
+        round(float(a['lToplamMiktar']), 3),
+    ] for a in rows]
+    buf = make_excel([{
+        'baslik': 'Alisveris Gecmisi',
+        'sutunlar': ['Tarih', 'Saat', 'Fis No', 'Odeme', 'Tutar (TL)', 'Miktar'],
+        'satirlar': satirlar,
+    }])
+    temiz_ad = ad.replace(' ', '_')[:20]
+    return excel_response(buf, f'musteri_{temiz_ad}.xlsx')
 
 
 # --- API: MIGRATION (uzaktan veri aktarimi) ---
