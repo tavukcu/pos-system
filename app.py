@@ -826,6 +826,7 @@ def fiyat_yonetimi():
 def api_fiyat_liste():
     search = request.args.get('q', '')
     if search:
+        s_upper = search.upper()
         rows = query(
             "SELECT s.nStokID, s.sKodu, s.sAciklama, s.sBirimCinsi1, "
             "ISNULL(f.lFiyat, 0) AS fiyat, f.dteFiyatTespitTarihi AS son_guncelleme "
@@ -833,7 +834,7 @@ def api_fiyat_liste():
             "LEFT JOIN tbStokFiyati f ON s.nStokID = f.nStokID AND f.sFiyatTipi = '1' "
             "WHERE s.sAciklama LIKE ? OR s.sKodu LIKE ? "
             "ORDER BY s.sAciklama",
-            [f'%{search}%', f'%{search}%']
+            [f'%{s_upper}%', f'%{s_upper}%']
         )
     else:
         rows = query(
