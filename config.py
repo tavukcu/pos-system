@@ -27,7 +27,7 @@ def adapt_sql(sql):
         val = m.group(2).strip()
         expr = m.group(3).strip()
         return f"({expr} + ({val}) * interval '1 {unit}')"
-    sql = re.sub(r'DATEADD\(\s*(\w+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)', dateadd_replace, sql, flags=re.IGNORECASE)
+    sql = re.sub(r'DATEADD\(\s*(\w+)\s*,\s*([^,]+)\s*,\s*((?:[^()]+|\([^)]*\))+)\s*\)', dateadd_replace, sql, flags=re.IGNORECASE)
     # MONTH(x) -> EXTRACT(MONTH FROM x)
     sql = re.sub(r'\bMONTH\(([^)]+)\)', r'EXTRACT(MONTH FROM \1)::int', sql, flags=re.IGNORECASE)
     # YEAR(x) -> EXTRACT(YEAR FROM x)
