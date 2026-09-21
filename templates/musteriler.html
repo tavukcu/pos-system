@@ -15,15 +15,46 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Ad</th>
-                    <th>Soyad</th>
+                    <th>Ad Soyad</th>
                     <th>Telefon</th>
                     <th>Il</th>
                 </tr>
             </thead>
             <tbody id="musteri-table"></tbody>
         </table>
+    </div>
+</div>
+
+<!-- GECMIS MODAL -->
+<div id="gecmis-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:680px;width:95%;max-height:88vh;overflow-y:auto;position:relative">
+        <button onclick="closeGecmis()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 id="gm-baslik" style="margin:0 0 4px"></h3>
+        <p id="gm-telefon" style="margin:0 0 16px;color:#666;font-size:13px"></p>
+
+        <!-- ozet kartlar -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px" id="gm-ozet"></div>
+
+        <!-- odeme dagilimi -->
+        <div id="gm-odeme" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
+
+        <!-- satislar tablosu -->
+        <h4 style="margin:0 0 8px;font-size:14px;color:#666">SON 50 ALISVERIS</h4>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Saat</th>
+                        <th>Fis No</th>
+                        <th>Odeme</th>
+                        <th style="text-align:right">Tutar</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="gm-satislar"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -46,14 +77,83 @@ async function searchMusteriler() {
 
 function renderMusteriler(data) {
     document.getElementById('musteri-table').innerHTML = data.map(m => `
-        <tr>
-            <td>${m.id}</td>
-            <td><strong>${m.adi}</strong></td>
-            <td>${m.soyadi}</td>
-            <td>${m.telefon}</td>
-            <td>${m.il}</td>
+        <tr style="cursor:pointer" onclick="showGecmis(${m.id}, '${esc(m.adi)} ${esc(m.soyadi)}', '${esc(m.telefon)}')">
+            <td><strong>${esc(m.adi)} ${esc(m.soyadi)}</strong></td>
+            <td>${esc(m.telefon)}</td>
+            <td>${esc(m.il)}</td>
         </tr>
-    `).join('');
+    `).join('') || '<tr><td colspan="3" style="text-align:center;color:#999">Sonuc bulunamadi</td></tr>';
+}
+
+async function showGecmis(id, ad, telefon) {
+    document.getElementById('gm-baslik').textContent = ad.trim() || 'Musteri #' + id;
+    document.getElementById('gm-telefon').textContent = telefon || 'Telefon yok';
+    document.getElementById('gm-ozet').innerHTML = '<div style="color:#999;padding:8px">Yukleniyor...</div>';
+    document.getElementById('gm-satislar').innerHTML = '';
+    document.getElementById('gecmis-modal').style.display = 'flex';
+
+    const data = await fetch('/api/musteri/' + id + '/gecmis').then(r => r.json());
+    const o = data.ozet;
+
+    // Ozet kartlar
+    document.getElementById('gm-ozet').innerHTML = `
+        <div class="stat-card" style="padding:10px">
+            <div style="font-size:18px;font-weight:700;color:#0d6efd">${formatMoney(o.toplam_harcama)}</div>
+            <div style="font-size:11px;color:#666">Toplam Harcama</div>
+        </div>
+        <div class="stat-card" style="padding:10px">
+            <div style="font-size:18px;font-weight:700">${o.islem_adedi}</div>
+            <div style="font-size:11px;color:#666">Alisveris</div>
+        </div>
+        <div class="stat-card" style="padding:10px">
+            <div style="font-size:18px;font-weight:700">${formatMoney(o.ort_fis)}</div>
+            <div style="font-size:11px;color:#666">Ort. Fis</div>
+        </div>
+        <div class="stat-card" style="padding:10px">
+            <div style="font-size:14px;font-weight:600">${o.ilk}</div>
+            <div style="font-size:11px;color:#666">Ilk Alisveris</div>
+        </div>
+        <div class="stat-card" style="padding:10px">
+            <div style="font-size:14px;font-weight:600">${o.son}</div>
+            <div style="font-size:11px;color:#666">Son Alisveris</div>
+        </div>
+    `;
+
+    // Odeme dagilimi
+    const odemeAd = { N: 'Nakit', K: 'Kart', V: 'Veresiye', T: 'Odendi' };
+    const odemeRenk = { N: '#198754', K: '#0d6efd', V: '#dc3545', T: '#6c757d' };
+    document.getElementById('gm-odeme').innerHTML = Object.entries(data.odeme)
+        .filter(([k]) => k && k !== 'T')
+        .map(([k, v]) => `
+            <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:8px 14px;font-size:13px">
+                <span style="color:${odemeRenk[k]||'#333'};font-weight:600">${odemeAd[k]||k}</span>:
+                <strong>${formatMoney(v.tutar)}</strong>
+                <span style="color:#999">(${v.islem} islem)</span>
+            </div>`).join('');
+
+    // Satislar
+    const sekRenk = { N: '#198754', K: '#0d6efd', V: '#dc3545', T: '#6c757d' };
+    document.getElementById('gm-satislar').innerHTML = data.satislar.map(s => `
+        <tr>
+            <td>${s.tarih}</td>
+            <td style="color:#666">${s.saat}</td>
+            <td>#${s.fis_no}</td>
+            <td><span style="color:${sekRenk[s.odeme]||'#333'};font-size:12px;font-weight:600">${odemeAd[s.odeme]||s.odeme||'-'}</span></td>
+            <td style="text-align:right;font-weight:700">${formatMoney(s.tutar)}</td>
+            <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')">Detay</button></td>
+        </tr>
+    `).join('') || '<tr><td colspan="6" style="text-align:center;color:#999">Alisveris bulunamadi</td></tr>';
+}
+
+function closeGecmis() {
+    document.getElementById('gecmis-modal').style.display = 'none';
+}
+document.getElementById('gecmis-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeGecmis();
+});
+
+function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
 }
 </script>
 {% endblock %}

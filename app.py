@@ -426,6 +426,69 @@ def api_musteriler():
     } for r in rows])
 
 
+# --- API: MUSTERI GECMISI ---
+
+@app.route('/api/musteri/<int:musteri_id>/gecmis')
+def api_musteri_gecmis(musteri_id):
+    # Ozet
+    ozet = query(
+        "SELECT COUNT(*) AS islem_adedi, "
+        "ISNULL(SUM(a.lNetTutar), 0) AS toplam_harcama, "
+        "ISNULL(AVG(a.lNetTutar), 0) AS ort_fis, "
+        "MIN(a.dteFaturaTarihi) AS ilk_alisveris, "
+        "MAX(a.dteFaturaTarihi) AS son_alisveris "
+        "FROM tbAlisVeris a "
+        "WHERE a.nMusteriID = ? AND a.lNetTutar < 10000000",
+        [musteri_id]
+    )
+    # Odeme tipi dagilimi
+    odeme_rows = query(
+        "SELECT RTRIM(o.sOdemeSekli) AS sekil, "
+        "COUNT(*) AS islem_adedi, ISNULL(SUM(a.lNetTutar), 0) AS toplam "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE a.nMusteriID = ? AND a.lNetTutar < 10000000 "
+        "GROUP BY RTRIM(o.sOdemeSekli)",
+        [musteri_id]
+    )
+    odeme = {}
+    for r in odeme_rows:
+        odeme[(r['sekil'] or '').strip()] = {
+            'islem': int(r['islem_adedi']), 'tutar': float(r['toplam'])
+        }
+    # Son 50 alisveris
+    satislar = query(
+        "SELECT TOP 50 a.nAlisverisID, a.lFaturaNo, a.dteFaturaTarihi, "
+        "a.dteKayitTarihi, a.lNetTutar, a.lToplamMiktar, "
+        "RTRIM(ISNULL(o.sOdemeSekli, '')) AS odeme_sekli "
+        "FROM tbAlisVeris a "
+        "LEFT JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE a.nMusteriID = ? AND a.lNetTutar < 10000000 "
+        "ORDER BY a.dteKayitTarihi DESC",
+        [musteri_id]
+    )
+    o = ozet[0]
+    return jsonify({
+        'ozet': {
+            'islem_adedi': int(o['islem_adedi']),
+            'toplam_harcama': float(o['toplam_harcama']),
+            'ort_fis': float(o['ort_fis']),
+            'ilk': o['ilk_alisveris'].strftime('%d.%m.%Y') if o['ilk_alisveris'] else '',
+            'son': o['son_alisveris'].strftime('%d.%m.%Y') if o['son_alisveris'] else '',
+        },
+        'odeme': odeme,
+        'satislar': [{
+            'id': r['nAlisverisID'].strip(),
+            'fis_no': int(r['lFaturaNo']),
+            'tarih': r['dteFaturaTarihi'].strftime('%d.%m.%Y') if r['dteFaturaTarihi'] else '',
+            'saat': r['dteKayitTarihi'].strftime('%H:%M') if r['dteKayitTarihi'] else '',
+            'tutar': float(r['lNetTutar']),
+            'miktar': float(r['lToplamMiktar']),
+            'odeme': (r['odeme_sekli'] or '').strip(),
+        } for r in satislar],
+    })
+
+
 # --- API: RAPORLAR ---
 
 @app.route('/api/rapor/gunluk')
