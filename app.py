@@ -520,6 +520,80 @@ def api_rapor_satis_detay():
     } for r in rows])
 
 
+# --- API: KARSILASTIRMALI RAPOR ---
+
+@app.route('/karsilastirma')
+def karsilastirma():
+    return render_template('karsilastirma.html')
+
+@app.route('/api/rapor/karsilastirma')
+def api_rapor_karsilastirma():
+    from datetime import timedelta
+    tip = request.args.get('tip', 'hafta')
+    bugun = date.today()
+
+    if tip == 'hafta':
+        # Bu hafta: Pazartesi - bugun
+        haftanin_gunu = bugun.weekday()  # 0=Pzt
+        bu_baslangic = bugun - timedelta(days=haftanin_gunu)
+        bu_bitis = bugun
+        g_baslangic = bu_baslangic - timedelta(days=7)
+        g_bitis = bu_bitis - timedelta(days=7)
+        etiket_fmt = '%a'  # Pzt, Sal...
+    else:
+        # Bu ay: 1 - bugun
+        bu_baslangic = bugun.replace(day=1)
+        bu_bitis = bugun
+        from calendar import monthrange
+        onceki_ay = bugun.month - 1 or 12
+        onceki_yil = bugun.year if bugun.month > 1 else bugun.year - 1
+        gun_sayisi = monthrange(onceki_yil, onceki_ay)[1]
+        g_baslangic = date(onceki_yil, onceki_ay, 1)
+        g_bitis = date(onceki_yil, onceki_ay, min(bugun.day, gun_sayisi))
+        etiket_fmt = '%d'
+
+    def get_gunluk(baslangic, bitis):
+        rows = query(
+            "SELECT CAST(dteFaturaTarihi AS DATE) AS gun, "
+            "COUNT(*) AS islem_adedi, ISNULL(SUM(lNetTutar), 0) AS ciro "
+            "FROM tbAlisVeris "
+            "WHERE CAST(dteFaturaTarihi AS DATE) >= ? "
+            "AND CAST(dteFaturaTarihi AS DATE) <= ? "
+            "AND lNetTutar < 10000000 "
+            "GROUP BY CAST(dteFaturaTarihi AS DATE) "
+            "ORDER BY gun",
+            [baslangic.isoformat(), bitis.isoformat()]
+        )
+        # Her gun icin bos satirlarla doldur
+        gun_map = {}
+        for r in rows:
+            g = r['gun'] if hasattr(r['gun'], 'strftime') else date.fromisoformat(str(r['gun']))
+            gun_map[g] = {'ciro': float(r['ciro']), 'islem': int(r['islem_adedi'])}
+
+        result = []
+        current = baslangic
+        while current <= bitis:
+            d = gun_map.get(current, {'ciro': 0, 'islem': 0})
+            result.append({
+                'tarih': current.isoformat(),
+                'etiket': current.strftime(etiket_fmt),
+                'ciro': d['ciro'],
+                'islem': d['islem'],
+            })
+            current += timedelta(days=1)
+        return result
+
+    return jsonify({
+        'tip': tip,
+        'bu_donem': get_gunluk(bu_baslangic, bu_bitis),
+        'gecen_donem': get_gunluk(g_baslangic, g_bitis),
+        'bu_baslangic': bu_baslangic.isoformat(),
+        'bu_bitis': bu_bitis.isoformat(),
+        'g_baslangic': g_baslangic.isoformat(),
+        'g_bitis': g_bitis.isoformat(),
+    })
+
+
 # --- API: KASA RAPORU ---
 
 @app.route('/kasa-raporu')

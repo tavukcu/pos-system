@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Karsilastirmali Rapor - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Karsilastirmali Rapor</h1>
+</div>
+
+<!-- SEKMELer -->
+<div style="display:flex;gap:8px;margin-bottom:20px">
+    <button class="btn btn-primary" id="tab-hafta" onclick="switchTab('hafta')">Bu Hafta vs Gecen Hafta</button>
+    <button class="btn btn-secondary" id="tab-ay" onclick="switchTab('ay')">Bu Ay vs Gecen Ay</button>
+</div>
+
+<!-- OZET KARTLAR -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px" id="ozet-cards"></div>
+
+<!-- GRAFIK -->
+<div class="card" style="margin-bottom:20px">
+    <h2 id="grafik-baslik"></h2>
+    <div style="display:flex;gap:16px;margin-bottom:8px;font-size:13px">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:16px;height:4px;background:#0d6efd;display:inline-block;border-radius:2px"></span>Bu donem</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:16px;height:4px;background:#adb5bd;display:inline-block;border-radius:2px;border:1px dashed #868e96"></span>Gecen donem</span>
+    </div>
+    <div id="grafik-container" style="position:relative;height:260px;overflow-x:auto">
+        <div class="chart-container" id="grafik" style="height:220px;margin-bottom:30px"></div>
+    </div>
+</div>
+
+<!-- TABLO -->
+<div class="card">
+    <h2 id="tablo-baslik"></h2>
+    <div class="table-wrapper">
+        <table>
+            <thead id="tablo-head"></thead>
+            <tbody id="tablo-body"></tbody>
+            <tfoot id="tablo-foot"></tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTab = 'hafta';
+
+document.addEventListener('DOMContentLoaded', () => loadData('hafta'));
+
+function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-hafta').className = tab === 'hafta' ? 'btn btn-primary' : 'btn btn-secondary';
+    document.getElementById('tab-ay').className = tab === 'ay' ? 'btn btn-primary' : 'btn btn-secondary';
+    loadData(tab);
+}
+
+async function loadData(tip) {
+    const data = await fetch('/api/rapor/karsilastirma?tip=' + tip).then(r => r.json());
+    renderOzet(data);
+    renderGrafik(data, tip);
+    renderTablo(data, tip);
+}
+
+function renderOzet(d) {
+    const buCiro = d.bu_donem.reduce((s, r) => s + r.ciro, 0);
+    const gCiro = d.gecen_donem.reduce((s, r) => s + r.ciro, 0);
+    const buIslem = d.bu_donem.reduce((s, r) => s + r.islem, 0);
+    const gIslem = d.gecen_donem.reduce((s, r) => s + r.islem, 0);
+    const buOrt = buIslem > 0 ? buCiro / buIslem : 0;
+    const gOrt = gIslem > 0 ? gCiro / gIslem : 0;
+
+    function degisim(yeni, eski) {
+        if (eski === 0) return yeni > 0 ? '+100%' : '0%';
+        const pct = ((yeni - eski) / eski * 100);
+        const renk = pct >= 0 ? '#198754' : '#dc3545';
+        const isaret = pct >= 0 ? '▲' : '▼';
+        return `<span style="color:${renk};font-size:13px">${isaret} ${Math.abs(pct).toFixed(1)}%</span>`;
+    }
+
+    document.getElementById('ozet-cards').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-label">Bu Donem Ciro</div>
+            <div class="stat-value" style="color:#0d6efd">${formatMoney(buCiro)}</div>
+            <div style="margin-top:4px;font-size:12px;color:#666">${formatMoney(gCiro)} gecen donem ${degisim(buCiro, gCiro)}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Bu Donem Islem</div>
+            <div class="stat-value">${buIslem}</div>
+            <div style="margin-top:4px;font-size:12px;color:#666">${gIslem} gecen donem ${degisim(buIslem, gIslem)}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Ort. Fis Tutari</div>
+            <div class="stat-value">${formatMoney(buOrt)}</div>
+            <div style="margin-top:4px;font-size:12px;color:#666">${formatMoney(gOrt)} gecen donem ${degisim(buOrt, gOrt)}</div>
+        </div>
+    `;
+}
+
+function renderGrafik(d, tip) {
+    const baslik = tip === 'hafta' ? 'Gunluk Karsilastirma (Bu Hafta vs Gecen Hafta)' : 'Gunluk Karsilastirma (Bu Ay vs Gecen Ay)';
+    document.getElementById('grafik-baslik').textContent = baslik;
+
+    const chart = document.getElementById('grafik');
+    chart.innerHTML = '';
+
+    const tumCirolar = [...d.bu_donem.map(r => r.ciro), ...d.gecen_donem.map(r => r.ciro)];
+    const maxCiro = Math.max(...tumCirolar, 1);
+
+    const len = Math.max(d.bu_donem.length, d.gecen_donem.length);
+    for (let i = 0; i < len; i++) {
+        const bu = d.bu_donem[i] || { ciro: 0, etiket: '' };
+        const g = d.gecen_donem[i] || { ciro: 0, etiket: '' };
+
+        const group = document.createElement('div');
+        group.style.cssText = 'display:flex;flex-direction:column;align-items:center;flex:1;min-width:32px;gap:2px';
+
+        const bars = document.createElement('div');
+        bars.style.cssText = 'display:flex;gap:2px;align-items:flex-end;height:200px';
+
+        const b1 = document.createElement('div');
+        b1.style.cssText = `width:14px;background:#0d6efd;border-radius:3px 3px 0 0;height:${Math.max((bu.ciro/maxCiro)*190,2)}px;cursor:pointer`;
+        b1.title = bu.etiket + ': ' + formatMoney(bu.ciro);
+
+        const b2 = document.createElement('div');
+        b2.style.cssText = `width:14px;background:#adb5bd;border-radius:3px 3px 0 0;height:${Math.max((g.ciro/maxCiro)*190,g.ciro>0?2:0)}px;cursor:pointer`;
+        b2.title = 'Gecen: ' + formatMoney(g.ciro);
+
+        bars.appendChild(b1);
+        bars.appendChild(b2);
+
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:10px;color:#666;text-align:center;margin-top:4px;white-space:nowrap';
+        label.textContent = bu.etiket || g.etiket;
+
+        group.appendChild(bars);
+        group.appendChild(label);
+        chart.appendChild(group);
+    }
+}
+
+function renderTablo(d, tip) {
+    const baslik = tip === 'hafta' ? 'Gunluk Detay' : 'Gunluk Detay';
+    document.getElementById('tablo-baslik').textContent = baslik;
+
+    document.getElementById('tablo-head').innerHTML = `
+        <tr>
+            <th>Gun</th>
+            <th style="text-align:right;color:#0d6efd">Bu Donem Ciro</th>
+            <th style="text-align:center;color:#0d6efd">Islem</th>
+            <th style="text-align:right;color:#868e96">Gecen Donem Ciro</th>
+            <th style="text-align:center;color:#868e96">Islem</th>
+            <th style="text-align:right">Fark</th>
+        </tr>`;
+
+    const len = Math.max(d.bu_donem.length, d.gecen_donem.length);
+    let topBu = 0, topG = 0, topBuI = 0, topGI = 0;
+    const rows = [];
+
+    for (let i = 0; i < len; i++) {
+        const bu = d.bu_donem[i] || { ciro: 0, islem: 0, etiket: '-' };
+        const g = d.gecen_donem[i] || { ciro: 0, islem: 0, etiket: '-' };
+        const fark = bu.ciro - g.ciro;
+        const farkRenk = fark > 0 ? '#198754' : fark < 0 ? '#dc3545' : '#666';
+        topBu += bu.ciro; topG += g.ciro; topBuI += bu.islem; topGI += g.islem;
+        rows.push(`<tr>
+            <td><strong>${bu.etiket || g.etiket}</strong></td>
+            <td style="text-align:right">${bu.ciro > 0 ? formatMoney(bu.ciro) : '-'}</td>
+            <td style="text-align:center">${bu.islem || '-'}</td>
+            <td style="text-align:right;color:#868e96">${g.ciro > 0 ? formatMoney(g.ciro) : '-'}</td>
+            <td style="text-align:center;color:#868e96">${g.islem || '-'}</td>
+            <td style="text-align:right;font-weight:700;color:${farkRenk}">${fark !== 0 ? (fark > 0 ? '+' : '') + formatMoney(fark) : '-'}</td>
+        </tr>`);
+    }
+
+    document.getElementById('tablo-body').innerHTML = rows.join('');
+
+    const totFark = topBu - topG;
+    const totRenk = totFark > 0 ? '#198754' : totFark < 0 ? '#dc3545' : '#666';
+    document.getElementById('tablo-foot').innerHTML = `
+        <tr style="font-weight:700;background:#f8f9fa">
+            <th>TOPLAM</th>
+            <th style="text-align:right">${formatMoney(topBu)}</th>
+            <th style="text-align:center">${topBuI}</th>
+            <th style="text-align:right;color:#868e96">${formatMoney(topG)}</th>
+            <th style="text-align:center;color:#868e96">${topGI}</th>
+            <th style="text-align:right;color:${totRenk}">${totFark > 0 ? '+' : ''}${formatMoney(totFark)}</th>
+        </tr>`;
+}
+</script>
+{% endblock %}
