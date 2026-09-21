@@ -832,7 +832,7 @@ def api_fiyat_liste():
             "ISNULL(f.lFiyat, 0) AS fiyat, f.dteFiyatTespitTarihi AS son_guncelleme "
             "FROM tbStok s "
             "LEFT JOIN tbStokFiyati f ON s.nStokID = f.nStokID AND f.sFiyatTipi = '1' "
-            "WHERE s.sAciklama LIKE ? OR s.sKodu LIKE ? "
+            "WHERE UPPER(s.sAciklama) LIKE ? OR UPPER(s.sKodu) LIKE ? "
             "ORDER BY s.sAciklama",
             [f'%{s_upper}%', f'%{s_upper}%']
         )
