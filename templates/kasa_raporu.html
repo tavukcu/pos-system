@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Kasa Raporu - POS{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <h1>Kasa Raporu</h1>
+    <div style="display:flex;align-items:center;gap:8px">
+        <input type="date" id="tarih-input" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px">
+        <button class="btn btn-primary" onclick="loadKasa()">Getir</button>
+    </div>
+</div>
+
+<!-- OZET KARTLAR -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px" id="ozet-cards"></div>
+
+<!-- ALT GRID -->
+<div class="grid grid-2">
+    <!-- KASIYERE GORE -->
+    <div class="card">
+        <h2>Kasiyere Gore</h2>
+        <div class="table-wrapper">
+            <table id="kasiyer-table">
+                <thead><tr><th>Kasiyer</th><th style="text-align:right">Nakit</th><th style="text-align:right">Kart</th><th style="text-align:right">Veresiye</th><th style="text-align:right">Toplam</th><th style="text-align:center">Islem</th></tr></thead>
+                <tbody id="kasiyer-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SAATLIK DAGILIM -->
+    <div class="card">
+        <h2>Saatlik Dagilim</h2>
+        <div class="chart-container" id="saat-chart" style="height:220px;margin-bottom:16px"></div>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Saat</th><th style="text-align:center">Islem</th><th style="text-align:right">Ciro</th></tr></thead>
+                <tbody id="saat-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('tarih-input').value = today;
+    loadKasa();
+});
+
+document.getElementById('tarih-input').addEventListener('keydown', e => { if (e.key === 'Enter') loadKasa(); });
+
+async function loadKasa() {
+    const tarih = document.getElementById('tarih-input').value;
+    if (!tarih) return;
+    const data = await fetch('/api/rapor/kasa?tarih=' + tarih).then(r => r.json());
+    renderOzet(data.ozet);
+    renderKasiyerler(data.kasiyerler);
+    renderSaatlik(data.saatlik);
+}
+
+function renderOzet(o) {
+    document.getElementById('ozet-cards').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value" style="color:#198754">${formatMoney(o.nakit.tutar)}</div>
+            <div class="stat-label">Nakit (${o.nakit.islem} islem)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:#0d6efd">${formatMoney(o.kart.tutar)}</div>
+            <div class="stat-label">Kredi Karti (${o.kart.islem} islem)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:#dc3545">${formatMoney(o.veresiye.tutar)}</div>
+            <div class="stat-label">Veresiye (${o.veresiye.islem} islem)</div>
+        </div>
+        <div class="stat-card" style="background:#f8f9fa;border:2px solid #dee2e6">
+            <div class="stat-value" style="color:#212529">${formatMoney(o.toplam.tutar)}</div>
+            <div class="stat-label"><strong>TOPLAM (${o.toplam.islem} islem)</strong></div>
+        </div>
+    `;
+}
+
+function renderKasiyerler(data) {
+    if (!data.length) {
+        document.getElementById('kasiyer-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">Veri yok</td></tr>';
+        return;
+    }
+    document.getElementById('kasiyer-tbody').innerHTML = data.map(k => `
+        <tr>
+            <td><strong>${escHtml(k.ad)}</strong></td>
+            <td style="text-align:right;color:#198754">${k.nakit > 0 ? formatMoney(k.nakit) : '-'}</td>
+            <td style="text-align:right;color:#0d6efd">${k.kart > 0 ? formatMoney(k.kart) : '-'}</td>
+            <td style="text-align:right;color:#dc3545">${k.veresiye > 0 ? formatMoney(k.veresiye) : '-'}</td>
+            <td style="text-align:right;font-weight:700">${formatMoney(k.toplam)}</td>
+            <td style="text-align:center">${k.islem}</td>
+        </tr>
+    `).join('');
+}
+
+function renderSaatlik(data) {
+    if (!data.length) {
+        document.getElementById('saat-chart').innerHTML = '<div style="text-align:center;padding:60px;color:#999">Veri yok</div>';
+        document.getElementById('saat-tbody').innerHTML = '';
+        return;
+    }
+
+    // Chart
+    const chart = document.getElementById('saat-chart');
+    chart.innerHTML = '';
+    const maxTutar = Math.max(...data.map(s => s.tutar), 1);
+    data.forEach(s => {
+        const pct = (s.tutar / maxTutar) * 180;
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar';
+        bar.style.height = Math.max(pct, 6) + 'px';
+        bar.innerHTML = `<span class="bar-value">${formatShort(s.tutar)}</span><span class="bar-label">${s.saat}:00</span>`;
+        chart.appendChild(bar);
+    });
+
+    // Table
+    document.getElementById('saat-tbody').innerHTML = data.map(s => `
+        <tr>
+            <td><strong>${s.saat}:00 - ${s.saat + 1}:00</strong></td>
+            <td style="text-align:center">${s.islem}</td>
+            <td style="text-align:right">${formatMoney(s.tutar)}</td>
+        </tr>
+    `).join('');
+}
+
+function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

@@ -520,6 +520,96 @@ def api_rapor_satis_detay():
     } for r in rows])
 
 
+# --- API: KASA RAPORU ---
+
+@app.route('/kasa-raporu')
+def kasa_raporu():
+    return render_template('kasa_raporu.html')
+
+@app.route('/api/rapor/kasa')
+def api_rapor_kasa():
+    tarih = request.args.get('tarih', date.today().isoformat())
+
+    # Odeme tipine gore ozet
+    ozet_rows = query(
+        "SELECT RTRIM(o.sOdemeSekli) AS sekil, "
+        "COUNT(*) AS islem_adedi, ISNULL(SUM(a.lNetTutar), 0) AS toplam "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "AND a.lNetTutar < 10000000 "
+        "GROUP BY RTRIM(o.sOdemeSekli)",
+        [tarih]
+    )
+
+    ozet = {'N': {'tutar': 0, 'islem': 0}, 'K': {'tutar': 0, 'islem': 0},
+            'V': {'tutar': 0, 'islem': 0}, 'T': {'tutar': 0, 'islem': 0}}
+    for r in ozet_rows:
+        s = (r['sekil'] or '').strip().upper()
+        if s not in ozet:
+            ozet[s] = {'tutar': 0, 'islem': 0}
+        ozet[s]['tutar'] += float(r['toplam'])
+        ozet[s]['islem'] += int(r['islem_adedi'])
+
+    toplam_tutar = sum(v['tutar'] for v in ozet.values())
+    toplam_islem = sum(v['islem'] for v in ozet.values())
+
+    # Kasiyere gore breakdown
+    kasiyer_rows = query(
+        "SELECT ISNULL(k.sAdi, RTRIM(a.sKasiyerRumuzu)) AS eleman_adi, "
+        "RTRIM(o.sOdemeSekli) AS sekil, "
+        "COUNT(*) AS islem_adedi, ISNULL(SUM(a.lNetTutar), 0) AS toplam "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "LEFT JOIN tbKasiyer k ON RTRIM(a.sKasiyerRumuzu) = RTRIM(k.sKasiyerRumuzu) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "AND a.lNetTutar < 10000000 "
+        "GROUP BY ISNULL(k.sAdi, RTRIM(a.sKasiyerRumuzu)), RTRIM(o.sOdemeSekli) "
+        "ORDER BY eleman_adi",
+        [tarih]
+    )
+
+    kasiyerler = {}
+    for r in kasiyer_rows:
+        ad = (r['eleman_adi'] or '').strip() or 'Bilinmiyor'
+        s = (r['sekil'] or '').strip().upper()
+        if ad not in kasiyerler:
+            kasiyerler[ad] = {'ad': ad, 'nakit': 0, 'kart': 0, 'veresiye': 0, 'diger': 0, 'islem': 0}
+        tutar = float(r['toplam'])
+        kasiyerler[ad]['islem'] += int(r['islem_adedi'])
+        if s == 'N': kasiyerler[ad]['nakit'] += tutar
+        elif s == 'K': kasiyerler[ad]['kart'] += tutar
+        elif s in ('V', 'T'): kasiyerler[ad]['veresiye'] += tutar
+        else: kasiyerler[ad]['diger'] += tutar
+
+    for k in kasiyerler.values():
+        k['toplam'] = k['nakit'] + k['kart'] + k['veresiye'] + k['diger']
+
+    # Saatlik dagilim
+    saat_rows = query(
+        "SELECT DATEPART(HOUR, a.dteKayitTarihi) AS saat, "
+        "COUNT(*) AS islem_adedi, ISNULL(SUM(a.lNetTutar), 0) AS toplam "
+        "FROM tbAlisVeris a "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "AND a.lNetTutar < 10000000 "
+        "GROUP BY DATEPART(HOUR, a.dteKayitTarihi) "
+        "ORDER BY saat",
+        [tarih]
+    )
+
+    return jsonify({
+        'tarih': tarih,
+        'ozet': {
+            'nakit': ozet['N'],
+            'kart': ozet['K'],
+            'veresiye': ozet.get('V', {'tutar': 0, 'islem': 0}),
+            'toplam': {'tutar': toplam_tutar, 'islem': toplam_islem},
+        },
+        'kasiyerler': sorted(kasiyerler.values(), key=lambda x: -x['toplam']),
+        'saatlik': [{'saat': int(r['saat'] or 0), 'islem': int(r['islem_adedi']), 'tutar': float(r['toplam'])} for r in saat_rows],
+    })
+
+
 # --- API: URUN BAZLI RAPOR ---
 
 @app.route('/urun-rapor')

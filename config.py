@@ -32,6 +32,8 @@ def adapt_sql(sql):
     sql = re.sub(r'\bMONTH\(([^)]+)\)', r'EXTRACT(MONTH FROM \1)::int', sql, flags=re.IGNORECASE)
     # YEAR(x) -> EXTRACT(YEAR FROM x)
     sql = re.sub(r'\bYEAR\(([^)]+)\)', r'EXTRACT(YEAR FROM \1)::int', sql, flags=re.IGNORECASE)
+    # DATEPART(HOUR, x) -> EXTRACT(HOUR FROM x)
+    sql = re.sub(r'DATEPART\(\s*HOUR\s*,\s*([^)]+)\)', r'EXTRACT(HOUR FROM \1)::int', sql, flags=re.IGNORECASE)
     # ? -> %s
     sql = sql.replace('?', '%s')
     return sql
