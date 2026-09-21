@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Gun Sonu Raporu - POS{% endblock %}
+{% block content %}
+<div class="page-header gs-screen" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <h1>Gun Sonu Raporu</h1>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <input type="date" id="tarih-input" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px">
+        <button class="btn btn-primary" onclick="yukle()">Getir</button>
+        <button class="btn btn-secondary" onclick="window.print()">&#128438; Yazdir</button>
+        <button class="btn btn-secondary" onclick="exportExcel()">&#8595; Excel</button>
+    </div>
+</div>
+
+<!-- YAZDIR BASLIK (sadece print'te gorunsun) -->
+<div class="gs-print-header">
+    <h2 style="margin:0 0 4px">DINCER TAVUKCULUK</h2>
+    <div style="font-size:14px" id="print-tarih"></div>
+    <hr style="margin:12px 0">
+</div>
+
+<!-- OZET KARTLAR -->
+<div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px"></div>
+
+<!-- ALT BOLUMLER -->
+<div class="gs-grid">
+
+    <!-- KASIYERE GORE -->
+    <div class="card">
+        <h2>Kasiyere Gore</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr>
+                    <th>Kasiyer</th>
+                    <th style="text-align:right">Nakit</th>
+                    <th style="text-align:right">Kart</th>
+                    <th style="text-align:right">Veresiye</th>
+                    <th style="text-align:right">Toplam</th>
+                    <th style="text-align:center">Islem</th>
+                </tr></thead>
+                <tbody id="kasiyer-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SAATLIK DAGILIM -->
+    <div class="card">
+        <h2>Saatlik Dagilim</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr>
+                    <th>Saat</th>
+                    <th style="text-align:center">Islem</th>
+                    <th style="text-align:right">Ciro</th>
+                    <th style="text-align:right">Oran</th>
+                </tr></thead>
+                <tbody id="saat-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- EN COK SATANLAR -->
+<div class="card" style="margin-top:16px">
+    <h2>Urun Detayi <span id="urun-cesit" style="font-size:13px;font-weight:400;color:#666"></span></h2>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr>
+                <th>#</th>
+                <th>Urun</th>
+                <th style="text-align:right">Miktar</th>
+                <th style="text-align:right">Tutar</th>
+                <th style="text-align:right">Oran</th>
+            </tr></thead>
+            <tbody id="urun-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.gs-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+.gs-print-header { display:none;text-align:center;margin-bottom:16px; }
+
+@media (max-width:768px) {
+    .gs-grid { grid-template-columns:1fr; }
+}
+
+@media print {
+    .gs-screen { display:none !important; }
+    .gs-print-header { display:block !important; }
+    nav, .sidebar, header { display:none !important; }
+    .content { margin:0 !important; padding:0 !important; }
+    body { font-size:12px; }
+    .card { box-shadow:none;border:1px solid #ddd;break-inside:avoid;margin-bottom:12px; }
+    .stat-card { box-shadow:none;border:1px solid #ddd; }
+    .btn { display:none !important; }
+    #ozet-cards { grid-template-columns:repeat(3,1fr) !important; }
+    .gs-grid { grid-template-columns:1fr 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('tarih-input').value = new Date().toISOString().split('T')[0];
+    yukle();
+});
+
+document.getElementById('tarih-input').addEventListener('keydown', e => { if (e.key === 'Enter') yukle(); });
+
+async function yukle() {
+    const tarih = document.getElementById('tarih-input').value;
+    if (!tarih) return;
+
+    document.getElementById('print-tarih').textContent = formatTarih(tarih);
+
+    const [kasa, urun] = await Promise.all([
+        fetch('/api/rapor/kasa?tarih=' + tarih).then(r => r.json()),
+        fetch(`/api/rapor/urun_bazli?baslangic=${tarih}&bitis=${tarih}`).then(r => r.json()),
+    ]);
+
+    renderOzet(kasa.ozet, urun.toplam_ciro);
+    renderKasiyerler(kasa.kasiyerler);
+    renderSaatlik(kasa.saatlik, kasa.ozet.toplam.tutar);
+    renderUrunler(urun.urunler);
+    document.getElementById('urun-cesit').textContent = `(${urun.urun_sayisi} cesit)`;
+}
+
+function formatTarih(iso) {
+    const [y, m, d] = iso.split('-');
+    const gunler = ['Pazar','Pazartesi','Sali','Carsamba','Persembe','Cuma','Cumartesi'];
+    const gun = new Date(iso).getDay();
+    return `${d}.${m}.${y} ${gunler[gun]}`;
+}
+
+function renderOzet(o, ciro) {
+    const ort = o.toplam.islem > 0 ? o.toplam.tutar / o.toplam.islem : 0;
+    document.getElementById('ozet-cards').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value" style="color:#198754">${formatMoney(o.nakit.tutar)}</div>
+            <div class="stat-label">Nakit (${o.nakit.islem} islem)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:#0d6efd">${formatMoney(o.kart.tutar)}</div>
+            <div class="stat-label">Kart (${o.kart.islem} islem)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:#dc3545">${formatMoney(o.veresiye.tutar)}</div>
+            <div class="stat-label">Veresiye (${o.veresiye.islem} islem)</div>
+        </div>
+        <div class="stat-card" style="background:#f8f9fa;border:2px solid #dee2e6">
+            <div class="stat-value" style="color:#212529">${formatMoney(o.toplam.tutar)}</div>
+            <div class="stat-label"><strong>TOPLAM (${o.toplam.islem} islem)</strong></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${formatMoney(ort)}</div>
+            <div class="stat-label">Ort. Fis</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:#6f42c1">${formatMoney(ciro)}</div>
+            <div class="stat-label">Urun Cirosu</div>
+        </div>
+    `;
+}
+
+function renderKasiyerler(data) {
+    if (!data.length) {
+        document.getElementById('kasiyer-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">Veri yok</td></tr>';
+        return;
+    }
+    document.getElementById('kasiyer-tbody').innerHTML = data.map(k => `
+        <tr>
+            <td><strong>${esc(k.ad)}</strong></td>
+            <td style="text-align:right;color:#198754">${k.nakit > 0 ? formatMoney(k.nakit) : '-'}</td>
+            <td style="text-align:right;color:#0d6efd">${k.kart > 0 ? formatMoney(k.kart) : '-'}</td>
+            <td style="text-align:right;color:#dc3545">${k.veresiye > 0 ? formatMoney(k.veresiye) : '-'}</td>
+            <td style="text-align:right;font-weight:700">${formatMoney(k.toplam)}</td>
+            <td style="text-align:center">${k.islem}</td>
+        </tr>
+    `).join('');
+}
+
+function renderSaatlik(data, toplamTutar) {
+    if (!data.length) {
+        document.getElementById('saat-tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Veri yok</td></tr>';
+        return;
+    }
+    document.getElementById('saat-tbody').innerHTML = data.map(s => {
+        const oran = toplamTutar > 0 ? (s.tutar / toplamTutar * 100).toFixed(1) : 0;
+        const bar = `<div style="display:inline-block;width:${Math.max(parseFloat(oran), 1) * 1.2}px;height:8px;background:#0d6efd;border-radius:4px;vertical-align:middle;margin-right:4px"></div>`;
+        return `<tr>
+            <td><strong>${s.saat}:00–${s.saat+1}:00</strong></td>
+            <td style="text-align:center">${s.islem}</td>
+            <td style="text-align:right">${formatMoney(s.tutar)}</td>
+            <td>${bar}${oran}%</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderUrunler(data) {
+    if (!data.length) {
+        document.getElementById('urun-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999">Veri yok</td></tr>';
+        return;
+    }
+    document.getElementById('urun-tbody').innerHTML = data.map((u, i) => `
+        <tr>
+            <td style="color:#999">${i+1}</td>
+            <td><strong>${esc(u.ad)}</strong></td>
+            <td style="text-align:right">${u.miktar.toFixed(u.birim === 'KG' ? 2 : 0)} ${esc(u.birim)}</td>
+            <td style="text-align:right;font-weight:700">${formatMoney(u.tutar)}</td>
+            <td style="text-align:right;color:#666">${u.oran}%</td>
+        </tr>
+    `).join('');
+}
+
+function exportExcel() {
+    const tarih = document.getElementById('tarih-input').value;
+    if (!tarih) { alert('Tarih secin'); return; }
+    window.location = '/api/export/gun_sonu?tarih=' + tarih;
+}
+
+function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

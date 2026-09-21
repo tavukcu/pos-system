@@ -691,6 +691,10 @@ def api_rapor_karsilastirma():
 def kasa_raporu():
     return render_template('kasa_raporu.html')
 
+@app.route('/gun-sonu')
+def gun_sonu():
+    return render_template('gun_sonu.html')
+
 @app.route('/api/rapor/kasa')
 def api_rapor_kasa():
     tarih = request.args.get('tarih', date.today().isoformat())
@@ -1234,6 +1238,87 @@ def export_veresiye_gecmis():
         'satirlar': satirlar,
     }])
     return excel_response(buf, f'veresiye_gecmis_{bas}_{bit}.xlsx')
+
+@app.route('/api/export/gun_sonu')
+def export_gun_sonu():
+    tarih = request.args.get('tarih', date.today().isoformat())
+
+    # Kasa ozet
+    ozet_rows = query(
+        "SELECT RTRIM(o.sOdemeSekli) AS sekil, "
+        "COUNT(*) AS islem_adedi, ISNULL(SUM(a.lNetTutar), 0) AS toplam "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "AND a.lNetTutar < 10000000 "
+        "GROUP BY RTRIM(o.sOdemeSekli)", [tarih]
+    )
+    sekil_ad = {'N': 'Nakit', 'K': 'Kart', 'V': 'Veresiye', 'T': 'Odendi'}
+    ozet_satirlar = [[sekil_ad.get((r['sekil'] or '').strip(), r['sekil']),
+                      int(r['islem_adedi']), round(float(r['toplam']), 2)]
+                     for r in ozet_rows]
+
+    # Kasiyere gore
+    kasiyer_rows = query(
+        "SELECT ISNULL(k.sAdi, RTRIM(a.sKasiyerRumuzu)) AS eleman_adi, "
+        "RTRIM(o.sOdemeSekli) AS sekil, "
+        "COUNT(*) AS islem_adedi, ISNULL(SUM(a.lNetTutar), 0) AS toplam "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "LEFT JOIN tbKasiyer k ON RTRIM(a.sKasiyerRumuzu) = RTRIM(k.sKasiyerRumuzu) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "AND a.lNetTutar < 10000000 "
+        "GROUP BY ISNULL(k.sAdi, RTRIM(a.sKasiyerRumuzu)), RTRIM(o.sOdemeSekli) "
+        "ORDER BY eleman_adi", [tarih]
+    )
+    kasiyerler = {}
+    for r in kasiyer_rows:
+        ad = (r['eleman_adi'] or '').strip() or 'Bilinmiyor'
+        s = (r['sekil'] or '').strip().upper()
+        if ad not in kasiyerler:
+            kasiyerler[ad] = {'ad': ad, 'nakit': 0, 'kart': 0, 'veresiye': 0, 'islem': 0}
+        kasiyerler[ad]['islem'] += int(r['islem_adedi'])
+        if s == 'N': kasiyerler[ad]['nakit'] += float(r['toplam'])
+        elif s == 'K': kasiyerler[ad]['kart'] += float(r['toplam'])
+        elif s in ('V', 'T'): kasiyerler[ad]['veresiye'] += float(r['toplam'])
+    for k in kasiyerler.values():
+        k['toplam'] = k['nakit'] + k['kart'] + k['veresiye']
+    kas_satirlar = [[k['ad'], round(k['nakit'], 2), round(k['kart'], 2),
+                     round(k['veresiye'], 2), round(k['toplam'], 2), k['islem']]
+                    for k in sorted(kasiyerler.values(), key=lambda x: -x['toplam'])]
+
+    # Urun bazli (top 20)
+    urun_rows = query(
+        "SELECT s.sAciklama, s.sBirimCinsi1, "
+        "SUM(d.lCikisMiktar1) AS toplam_miktar, SUM(d.lCikisTutar) AS toplam_tutar "
+        "FROM tbStokFisiDetayi d "
+        "JOIN tbStok s ON d.nStokID = s.nStokID "
+        "WHERE CAST(d.dteIslemTarihi AS DATE) = ? "
+        "AND d.lCikisTutar < 10000000 AND d.nGirisCikis = 3 "
+        "GROUP BY s.sAciklama, s.sBirimCinsi1 "
+        "ORDER BY toplam_tutar DESC",
+        [tarih]
+    )
+    toplam_ciro = sum(float(r['toplam_tutar']) for r in urun_rows)
+    urun_satirlar = [[(r['sAciklama'] or '').strip(),
+                      round(float(r['toplam_miktar']), 3),
+                      (r['sBirimCinsi1'] or 'AD').strip(),
+                      round(float(r['toplam_tutar']), 2),
+                      round(float(r['toplam_tutar']) / toplam_ciro * 100, 1) if toplam_ciro > 0 else 0]
+                     for r in urun_rows]
+
+    buf = make_excel([
+        {'baslik': f'Gun Sonu - {tarih}',
+         'sutunlar': ['Odeme Tipi', 'Islem Sayisi', 'Tutar (TL)'],
+         'satirlar': ozet_satirlar},
+        {'baslik': 'Kasiyere Gore',
+         'sutunlar': ['Kasiyer', 'Nakit', 'Kart', 'Veresiye', 'Toplam', 'Islem'],
+         'satirlar': kas_satirlar},
+        {'baslik': 'Urun Detayi',
+         'sutunlar': ['Urun', 'Miktar', 'Birim', 'Tutar (TL)', 'Oran (%)'],
+         'satirlar': urun_satirlar},
+    ])
+    return excel_response(buf, f'gun_sonu_{tarih}.xlsx')
 
 @app.route('/api/export/musteri/<int:musteri_id>')
 def export_musteri(musteri_id):
