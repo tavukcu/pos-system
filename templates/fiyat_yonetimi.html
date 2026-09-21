@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Fiyat Yonetimi - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Fiyat Yonetimi</h1>
+</div>
+
+<div class="search-bar" style="margin-bottom:16px">
+    <input type="text" id="ara" placeholder="Urun adi veya kodu ara..." oninput="debounceAra()">
+    <button class="btn btn-primary" onclick="ara()">Ara</button>
+</div>
+
+<div id="ozet" style="color:#666;font-size:13px;margin-bottom:8px"></div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Urun</th>
+                    <th>Kod</th>
+                    <th>Birim</th>
+                    <th style="text-align:right">Mevcut Fiyat</th>
+                    <th style="text-align:center">Son Guncelleme</th>
+                    <th style="width:80px"></th>
+                </tr>
+            </thead>
+            <tbody id="fiyat-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- FIYAT DUZENLE MODAL -->
+<div id="fiyat-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:380px;width:92%;position:relative">
+        <button onclick="closeModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 style="margin:0 0 4px;font-size:16px" id="modal-ad"></h3>
+        <p style="margin:0 0 16px;font-size:12px;color:#666" id="modal-bilgi"></p>
+        <div style="margin-bottom:16px">
+            <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Yeni Fiyat (TL)</label>
+            <input type="number" id="modal-fiyat" step="0.01" min="0.01"
+                style="width:100%;padding:12px;font-size:22px;font-weight:700;border:2px solid #dee2e6;border-radius:8px;text-align:right;box-sizing:border-box">
+        </div>
+        <div id="modal-hata" style="color:#dc3545;font-size:13px;margin-bottom:12px;display:none"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-secondary" onclick="closeModal()">Iptal</button>
+            <button class="btn btn-primary" id="modal-kaydet" onclick="kaydetFiyat()">Kaydet</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allData = [];
+let aktifId = null;
+let debounceTimer = null;
+
+document.addEventListener('DOMContentLoaded', yukle);
+
+document.getElementById('ara').addEventListener('keydown', e => { if (e.key === 'Enter') ara(); });
+
+function debounceAra() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(ara, 400);
+}
+
+async function yukle() {
+    allData = await fetch('/api/fiyat/liste').then(r => r.json());
+    renderTablo(allData);
+    document.getElementById('ozet').textContent = `${allData.length} urun listelendi`;
+}
+
+async function ara() {
+    const q = document.getElementById('ara').value.trim();
+    const data = await fetch('/api/fiyat/liste' + (q ? '?q=' + encodeURIComponent(q) : '')).then(r => r.json());
+    allData = data;
+    renderTablo(data);
+    document.getElementById('ozet').textContent = `${data.length} urun bulundu`;
+}
+
+function renderTablo(data) {
+    if (!data.length) {
+        document.getElementById('fiyat-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#999">Urun bulunamadi</td></tr>';
+        return;
+    }
+    document.getElementById('fiyat-tbody').innerHTML = data.map(u => `
+        <tr id="row-${u.id}">
+            <td><strong>${esc(u.ad)}</strong></td>
+            <td style="color:#666;font-size:12px">${esc(u.kod)}</td>
+            <td style="color:#666">${esc(u.birim)}</td>
+            <td style="text-align:right">
+                <span id="fiyat-${u.id}" style="font-weight:700;font-size:15px;color:${u.fiyat > 0 ? '#212529' : '#dc3545'}">
+                    ${u.fiyat > 0 ? formatMoney(u.fiyat) : 'Fiyat yok'}
+                </span>
+            </td>
+            <td style="text-align:center;font-size:12px;color:#999">${u.son_guncelleme || '-'}</td>
+            <td style="text-align:right">
+                <button class="btn btn-secondary" style="padding:4px 12px;font-size:12px"
+                    onclick="openModal(${u.id}, '${esc(u.ad)}', '${esc(u.kod)}', ${u.fiyat}, '${esc(u.birim)}')">
+                    Duzenle
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openModal(id, ad, kod, fiyat, birim) {
+    aktifId = id;
+    document.getElementById('modal-ad').textContent = ad;
+    document.getElementById('modal-bilgi').textContent = `Kod: ${kod} | Birim: ${birim}`;
+    document.getElementById('modal-fiyat').value = fiyat > 0 ? fiyat.toFixed(2) : '';
+    document.getElementById('modal-hata').style.display = 'none';
+    document.getElementById('fiyat-modal').style.display = 'flex';
+    setTimeout(() => {
+        const inp = document.getElementById('modal-fiyat');
+        inp.focus(); inp.select();
+    }, 50);
+}
+
+function closeModal() {
+    document.getElementById('fiyat-modal').style.display = 'none';
+    aktifId = null;
+}
+
+document.getElementById('fiyat-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+document.getElementById('modal-fiyat').addEventListener('keydown', e => {
+    if (e.key === 'Enter') kaydetFiyat();
+    if (e.key === 'Escape') closeModal();
+});
+
+async function kaydetFiyat() {
+    if (!aktifId) return;
+    const fiyat = parseFloat(document.getElementById('modal-fiyat').value);
+    if (!fiyat || fiyat <= 0) {
+        const h = document.getElementById('modal-hata');
+        h.textContent = 'Gecerli bir fiyat girin'; h.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('modal-kaydet');
+    btn.disabled = true; btn.textContent = 'Kaydediliyor...';
+
+    try {
+        const res = await fetch('/api/fiyat/guncelle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({stok_id: aktifId, fiyat})
+        }).then(r => r.json());
+
+        if (res.ok) {
+            // Tabloda anında güncelle
+            const span = document.getElementById('fiyat-' + aktifId);
+            if (span) {
+                span.textContent = formatMoney(res.fiyat);
+                span.style.color = '#198754';
+                setTimeout(() => { span.style.color = '#212529'; }, 2000);
+            }
+            // allData güncelle
+            const u = allData.find(x => x.id === aktifId);
+            if (u) u.fiyat = res.fiyat;
+            closeModal();
+        } else {
+            const h = document.getElementById('modal-hata');
+            h.textContent = res.error || 'Hata olustu'; h.style.display = 'block';
+        }
+    } finally {
+        btn.disabled = false; btn.textContent = 'Kaydet';
+    }
+}
+
+function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
+}
+</script>
+{% endblock %}

@@ -816,6 +816,74 @@ def api_rapor_kasa():
     })
 
 
+# --- API: FIYAT YONETIMI ---
+
+@app.route('/fiyat-yonetimi')
+def fiyat_yonetimi():
+    return render_template('fiyat_yonetimi.html')
+
+@app.route('/api/fiyat/liste')
+def api_fiyat_liste():
+    search = request.args.get('q', '')
+    if search:
+        rows = query(
+            "SELECT s.nStokID, s.sKodu, s.sAciklama, s.sBirimCinsi1, "
+            "ISNULL(f.lFiyat, 0) AS fiyat, f.dteFiyatTespitTarihi AS son_guncelleme "
+            "FROM tbStok s "
+            "LEFT JOIN tbStokFiyati f ON s.nStokID = f.nStokID AND f.sFiyatTipi = '1' "
+            "WHERE s.sAciklama LIKE ? OR s.sKodu LIKE ? "
+            "ORDER BY s.sAciklama",
+            [f'%{search}%', f'%{search}%']
+        )
+    else:
+        rows = query(
+            "SELECT s.nStokID, s.sKodu, s.sAciklama, s.sBirimCinsi1, "
+            "ISNULL(f.lFiyat, 0) AS fiyat, f.dteFiyatTespitTarihi AS son_guncelleme "
+            "FROM tbStok s "
+            "LEFT JOIN tbStokFiyati f ON s.nStokID = f.nStokID AND f.sFiyatTipi = '1' "
+            "ORDER BY s.sAciklama"
+        )
+    return jsonify([{
+        'id': r['nStokID'],
+        'kod': (r['sKodu'] or '').strip(),
+        'ad': (r['sAciklama'] or '').strip(),
+        'birim': (r['sBirimCinsi1'] or 'AD').strip(),
+        'fiyat': float(r['fiyat'] or 0),
+        'son_guncelleme': r['son_guncelleme'].strftime('%d.%m.%Y') if r['son_guncelleme'] else '',
+    } for r in rows])
+
+@app.route('/api/fiyat/guncelle', methods=['POST'])
+def api_fiyat_guncelle():
+    d = request.json or {}
+    stok_id = d.get('stok_id')
+    try:
+        yeni_fiyat = float(d.get('fiyat', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Gecersiz fiyat'}), 400
+    if not stok_id or yeni_fiyat <= 0:
+        return jsonify({'error': 'Gecersiz veri'}), 400
+
+    now = datetime.now()
+    existing = query(
+        "SELECT nStokID FROM tbStokFiyati WHERE nStokID = ? AND sFiyatTipi = '1'",
+        [stok_id]
+    )
+    if existing:
+        execute(
+            adapt_sql("UPDATE tbStokFiyati SET lFiyat = ?, dteFiyatTespitTarihi = ?, "
+                      "sKullaniciAdi = 'POS' WHERE nStokID = ? AND sFiyatTipi = '1'"),
+            [yeni_fiyat, now, stok_id]
+        )
+    else:
+        execute(
+            adapt_sql("INSERT INTO tbStokFiyati (nStokID, sFiyatTipi, lFiyat, "
+                      "dteFiyatTespitTarihi, sKullaniciAdi, dteKayitTarihi) "
+                      "VALUES (?, '1', ?, ?, 'POS', ?)"),
+            [stok_id, yeni_fiyat, now, now]
+        )
+    return jsonify({'ok': True, 'fiyat': yeni_fiyat})
+
+
 # --- API: STOK DURUMU ---
 
 @app.route('/stok-durumu')
