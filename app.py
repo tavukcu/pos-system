@@ -335,10 +335,10 @@ def api_satis():
             "sKullaniciAdi, dteKayitTarihi) "
             "VALUES (?, ?, ?, 3, ?, ?, 'D001', '', ?, ?, ?, ?, "
             "0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "
-            "0, 0, 0, 0, 0, 0, ?, '', 0, 'POS', ?)"),
+            "0, 0, 0, 0, 0, 0, ?, '', ?, 'POS', ?)"),
             [alisveris_id, fis_tipi, now, fis_no, musteri_id,
              musteri_adi, musteri_soyadi, toplam_miktar, toplam_tutar,
-             toplam_tutar, now]
+             toplam_tutar, False, now]
         )
 
         islem_id = get_next_islem_id()
@@ -361,9 +361,9 @@ def api_satis():
                 "nAlisverisID, nStokFisiID, nIrsaliyeFisiID) "
                 "VALUES (?, ?, ?, 0, ?, ?, ?, ?, 3, 'D001', 0, '', '', '', "
                 "?, ?, 0, 0, 0, 0, 0, ?, 0, ?, ?, '', 0, 0, 0, 0, 0, 0, 0, "
-                "'TL', 0, 0, 0, 0, '', 0, 0, '', '', 0, 'POS', ?, ?, 0, 0)"),
+                "'TL', 0, 0, 0, 0, '', 0, 0, '', '', ?, 'POS', ?, ?, 0, 0)"),
                 [islem_id, k['stok_id'], now, musteri_id, fis_tipi, now,
-                 fis_no, odeme_sekli, now, miktar, fiyat, tutar, now, alisveris_id]
+                 fis_no, odeme_sekli, now, miktar, fiyat, tutar, False, now, alisveris_id]
             )
             islem_id += 1
 
@@ -374,9 +374,9 @@ def api_satis():
             "lOdemeTutar, sDovizCinsi, lDovizTutar, lMakbuzNo, lOdemeNo, "
             "nTaksitID, nIadeAlisverisID, bMuhasebeyeIslendimi, nKasaNo, "
             "sKullaniciAdi, dteKayitTarihi, sMagaza) "
-            "VALUES (?, ?, ?, 0, '', ?, ?, ?, 'TL', 0, 0, 0, '', '', 0, 1, "
+            "VALUES (?, ?, ?, 0, '', ?, ?, ?, 'TL', 0, 0, 0, '', '', ?, 1, "
             "'POS', ?, 'D001')"),
-            [odeme_id, alisveris_id, odeme_sekli, now, now, toplam_tutar, now]
+            [odeme_id, alisveris_id, odeme_sekli, now, now, toplam_tutar, False, now]
         )
 
         conn.commit()
