@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Stok Durumu - POS{% endblock %}
+{% block title %}Satis Hizi - POS{% endblock %}
 {% block content %}
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-    <h1>Stok Durumu <span style="font-size:13px;font-weight:400;color:#666">(Son 30 Gun)</span></h1>
+    <h1>Satis Hizi <span style="font-size:13px;font-weight:400;color:#666">(Son 30 Gun | Bugun vs Ort.)</span></h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
         <input type="text" id="ara" placeholder="Urun ara..." oninput="filtrele()" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;width:200px">
         <button class="btn btn-secondary" onclick="exportExcel()">&#8595; Excel</button>
@@ -14,10 +14,11 @@
 
 <!-- FILTRE BUTONLARI -->
 <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-    <button class="btn btn-secondary btn-sm active-filtre" id="f-hepsi" onclick="setFiltre('hepsi')">Tumu</button>
-    <button class="btn btn-secondary btn-sm" id="f-kritik" onclick="setFiltre('kritik')">&#9888; Kritik / Yok</button>
-    <button class="btn btn-secondary btn-sm" id="f-dusuk" onclick="setFiltre('dusuk')">&#9650; Dusuk</button>
-    <button class="btn btn-secondary btn-sm" id="f-bugun" onclick="setFiltre('bugun')">Bugun Satilan</button>
+    <button class="btn btn-secondary btn-sm active-filtre" id="f-hepsi"     onclick="setFiltre('hepsi')">Tumu</button>
+    <button class="btn btn-secondary btn-sm" id="f-satilmadi" onclick="setFiltre('satilmadi')">&#9888; Bugun Satilmadi</button>
+    <button class="btn btn-secondary btn-sm" id="f-hizli"     onclick="setFiltre('hizli')">&#9650; Hizli</button>
+    <button class="btn btn-secondary btn-sm" id="f-yavas"     onclick="setFiltre('yavas')">&#9660; Yavas</button>
+    <button class="btn btn-secondary btn-sm" id="f-bugun"     onclick="setFiltre('bugun')">Bugun Satilan</button>
 </div>
 
 <div class="card">
@@ -26,11 +27,10 @@
             <thead>
                 <tr>
                     <th>Urun</th>
-                    <th style="text-align:right">Bugun Satis</th>
-                    <th style="text-align:right">Net Stok</th>
-                    <th style="text-align:right">30G Giris</th>
-                    <th style="text-align:right">30G Cikis</th>
-                    <th style="text-align:right">Ort/Gun</th>
+                    <th style="text-align:right">Bugun</th>
+                    <th style="text-align:right">Bugun Tutar</th>
+                    <th style="text-align:right">Ort./Gun</th>
+                    <th style="text-align:right">30G Toplam</th>
                     <th style="text-align:center">Durum</th>
                 </tr>
             </thead>
@@ -40,10 +40,10 @@
 </div>
 
 <style>
-.badge-yok    { background:#dc3545;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
-.badge-kritik { background:#fd7e14;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
-.badge-dusuk  { background:#ffc107;color:#000;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
-.badge-normal { background:#198754;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
+.badge-satilmadi { background:#dc3545;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
+.badge-yavas     { background:#ffc107;color:#000;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
+.badge-normal    { background:#198754;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
+.badge-hizli     { background:#0d6efd;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
 .btn-sm { padding:6px 12px;font-size:12px; }
 .active-filtre { background:var(--primary) !important;color:#fff !important;border-color:var(--primary) !important; }
 </style>
@@ -57,42 +57,46 @@ let aktifFiltre = 'hepsi';
 document.addEventListener('DOMContentLoaded', yukle);
 
 async function yukle() {
-    document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#999">Yukleniyor...</td></tr>';
+    document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#999">Yukleniyor...</td></tr>';
     allData = await fetch('/api/stok/durum').then(r => r.json());
     renderOzet(allData);
     filtrele();
 }
 
 function renderOzet(data) {
-    const yok    = data.filter(d => d.durum === 'yok').length;
-    const kritik = data.filter(d => d.durum === 'kritik').length;
-    const dusuk  = data.filter(d => d.durum === 'dusuk').length;
-    const bugunVar = data.filter(d => d.bugun > 0).length;
-    const bugunTop = data.reduce((s, d) => s + d.bugun, 0);
+    const satilmadi = data.filter(d => d.durum === 'satilmadi').length;
+    const hizli     = data.filter(d => d.durum === 'hizli').length;
+    const yavas     = data.filter(d => d.durum === 'yavas').length;
+    const bugunTop  = data.reduce((s, d) => s + d.bugun_tutar, 0);
+    const bugunCesit = data.filter(d => d.bugun_miktar > 0).length;
 
     document.getElementById('ozet-cards').innerHTML = `
         <div class="stat-card">
             <div class="stat-value">${data.length}</div>
-            <div class="stat-label">Aktif Urun</div>
-        </div>
-        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('kritik')">
-            <div class="stat-value" style="color:#dc3545">${yok + kritik}</div>
-            <div class="stat-label">Kritik / Tukenmis</div>
-        </div>
-        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('dusuk')">
-            <div class="stat-value" style="color:#fd7e14">${dusuk}</div>
-            <div class="stat-label">Dusuk Stok</div>
+            <div class="stat-label">Aktif Urun (30G)</div>
         </div>
         <div class="stat-card" style="cursor:pointer" onclick="setFiltre('bugun')">
-            <div class="stat-value" style="color:#198754">${bugunVar}</div>
+            <div class="stat-value" style="color:#198754">${bugunCesit}</div>
             <div class="stat-label">Bugun Satilan Cesit</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('satilmadi')">
+            <div class="stat-value" style="color:#dc3545">${satilmadi}</div>
+            <div class="stat-label">Bugun Satilmadi</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('hizli')">
+            <div class="stat-value" style="color:#0d6efd">${hizli}</div>
+            <div class="stat-label">Hizli Satan</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:#198754">${formatMoney(bugunTop)}</div>
+            <div class="stat-label">Bugun Ciro</div>
         </div>
     `;
 }
 
 function setFiltre(f) {
     aktifFiltre = f;
-    ['hepsi','kritik','dusuk','bugun'].forEach(id => {
+    ['hepsi','satilmadi','hizli','yavas','bugun'].forEach(id => {
         document.getElementById('f-' + id).classList.toggle('active-filtre', id === f);
     });
     filtrele();
@@ -102,9 +106,10 @@ function filtrele() {
     const q = document.getElementById('ara').value.toLowerCase();
     let data = allData;
 
-    if (aktifFiltre === 'kritik') data = data.filter(d => d.durum === 'yok' || d.durum === 'kritik');
-    else if (aktifFiltre === 'dusuk') data = data.filter(d => d.durum === 'dusuk');
-    else if (aktifFiltre === 'bugun') data = data.filter(d => d.bugun > 0);
+    if (aktifFiltre === 'satilmadi') data = data.filter(d => d.durum === 'satilmadi');
+    else if (aktifFiltre === 'hizli')  data = data.filter(d => d.durum === 'hizli');
+    else if (aktifFiltre === 'yavas')  data = data.filter(d => d.durum === 'yavas');
+    else if (aktifFiltre === 'bugun')  data = data.filter(d => d.bugun_miktar > 0);
 
     if (q) data = data.filter(d => d.ad.toLowerCase().includes(q) || d.kod.toLowerCase().includes(q));
 
@@ -113,30 +118,26 @@ function filtrele() {
 
 function renderTablo(data) {
     if (!data.length) {
-        document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#999">Kayit bulunamadi</td></tr>';
+        document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#999">Kayit bulunamadi</td></tr>';
         return;
     }
-    const birimFmt = (val, birim) => birim === 'KG' ? val.toFixed(2) + ' KG' : val.toFixed(0) + ' ' + birim;
+    const fmt = (val, birim) => birim === 'KG' ? val.toFixed(2) + ' KG' : val.toFixed(0) + ' ' + birim;
     document.getElementById('stok-tbody').innerHTML = data.map(d => {
-        const rowBg = d.durum === 'yok' ? 'background:#fff5f5' :
-                      d.durum === 'kritik' ? 'background:#fff8f0' :
-                      d.durum === 'dusuk' ? 'background:#fffdf0' : '';
-        const netRenk = d.net <= 0 ? 'color:#dc3545;font-weight:700' :
-                        d.durum === 'kritik' ? 'color:#fd7e14;font-weight:700' :
-                        d.durum === 'dusuk' ? 'color:#e6a817;font-weight:600' :
-                        'color:#198754;font-weight:600';
+        const rowBg = d.durum === 'satilmadi' ? 'background:#fff5f5' :
+                      d.durum === 'yavas'     ? 'background:#fffdf0' :
+                      d.durum === 'hizli'     ? 'background:#f0f7ff' : '';
         const badge = `<span class="badge-${d.durum}">${
-            d.durum === 'yok' ? 'TUKENDI' :
-            d.durum === 'kritik' ? 'KRITIK' :
-            d.durum === 'dusuk' ? 'DUSUK' : 'NORMAL'
+            d.durum === 'satilmadi' ? 'SATILMADI' :
+            d.durum === 'hizli'    ? '&#9650; HIZLI' :
+            d.durum === 'yavas'    ? '&#9660; YAVAS' : 'NORMAL'
         }</span>`;
+        const ortBar = d.ort_gunluk > 0 ? `<div style="font-size:10px;color:#999;margin-top:2px">${fmt(d.ort_gunluk, d.birim)}/gun ort.</div>` : '';
         return `<tr style="${rowBg}">
             <td><strong>${esc(d.ad)}</strong><br><span style="font-size:11px;color:#999">${esc(d.kod)}</span></td>
-            <td style="text-align:right;color:${d.bugun > 0 ? '#0d6efd' : '#ccc'}">${d.bugun > 0 ? birimFmt(d.bugun, d.birim) : '-'}</td>
-            <td style="text-align:right;${netRenk}">${birimFmt(d.net, d.birim)}</td>
-            <td style="text-align:right;color:#198754">${birimFmt(d.giris, d.birim)}</td>
-            <td style="text-align:right;color:#666">${birimFmt(d.cikis, d.birim)}</td>
-            <td style="text-align:right;color:#666">${d.ort_gunluk > 0 ? birimFmt(d.ort_gunluk, d.birim) : '-'}</td>
+            <td style="text-align:right;font-weight:700;color:${d.bugun_miktar > 0 ? '#0d6efd' : '#ccc'}">${d.bugun_miktar > 0 ? fmt(d.bugun_miktar, d.birim) : '-'}</td>
+            <td style="text-align:right">${d.bugun_tutar > 0 ? formatMoney(d.bugun_tutar) : '-'}</td>
+            <td style="text-align:right;color:#666">${d.ort_gunluk > 0 ? fmt(d.ort_gunluk, d.birim) : '-'}</td>
+            <td style="text-align:right;color:#666">${fmt(d.cikis_30, d.birim)}</td>
             <td style="text-align:center">${badge}</td>
         </tr>`;
     }).join('');

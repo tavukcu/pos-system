@@ -789,36 +789,36 @@ def stok_durumu():
 def api_stok_durum():
     rows = query(
         "SELECT s.sAciklama, s.sKodu, s.sBirimCinsi1, "
-        "ISNULL(s.lAsgariMiktar, 0) AS min_stok, "
-        "ISNULL(SUM(CASE WHEN d.nGirisCikis != 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS giris_30, "
         "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS cikis_30, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 THEN d.lCikisTutar ELSE 0 END), 0) AS tutar_30, "
         "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND CAST(d.dteIslemTarihi AS DATE) = CAST(GETDATE() AS DATE) "
-        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) AS bugun_satis, "
+        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) AS bugun_miktar, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND CAST(d.dteIslemTarihi AS DATE) = CAST(GETDATE() AS DATE) "
+        "    THEN d.lCikisTutar ELSE 0 END), 0) AS bugun_tutar, "
         "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND d.dteIslemTarihi >= DATEADD(DAY, -7, GETDATE()) "
         "    THEN d.lCikisMiktar1 ELSE 0 END), 0) / 7.0 AS ort_gunluk "
         "FROM tbStok s "
         "JOIN tbStokFisiDetayi d ON s.nStokID = d.nStokID "
         "WHERE d.dteIslemTarihi >= DATEADD(DAY, -30, GETDATE()) "
-        "AND d.lCikisMiktar1 < 100000 "
-        "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1, s.lAsgariMiktar "
+        "AND d.lCikisMiktar1 < 100000 AND d.nGirisCikis = 3 "
+        "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1 "
         "ORDER BY cikis_30 DESC"
     )
 
     result = []
     for r in rows:
-        giris = float(r['giris_30'])
         cikis = float(r['cikis_30'])
-        net = giris - cikis
+        tutar = float(r['tutar_30'])
+        bugun_m = float(r['bugun_miktar'])
+        bugun_t = float(r['bugun_tutar'])
         ort = float(r['ort_gunluk'])
-        min_s = float(r['min_stok'])
-        bugun = float(r['bugun_satis'])
 
-        if min_s > 0 and net <= min_s:
-            durum = 'kritik'
-        elif net <= 0:
-            durum = 'yok'
-        elif ort > 0 and net < ort:
-            durum = 'dusuk'
+        if bugun_m == 0 and ort > 0:
+            durum = 'satilmadi'   # aktif urun, bugün satılmadı
+        elif ort > 0 and bugun_m >= ort * 1.1:
+            durum = 'hizli'       # ortalamanın üzerinde
+        elif ort > 0 and bugun_m < ort * 0.4:
+            durum = 'yavas'       # ortalamanın çok altında
         else:
             durum = 'normal'
 
@@ -826,11 +826,10 @@ def api_stok_durum():
             'ad': (r['sAciklama'] or '').strip(),
             'kod': (r['sKodu'] or '').strip(),
             'birim': (r['sBirimCinsi1'] or 'AD').strip(),
-            'giris': round(giris, 3),
-            'cikis': round(cikis, 3),
-            'net': round(net, 3),
-            'min_stok': round(min_s, 3),
-            'bugun': round(bugun, 3),
+            'cikis_30': round(cikis, 3),
+            'tutar_30': round(tutar, 2),
+            'bugun_miktar': round(bugun_m, 3),
+            'bugun_tutar': round(bugun_t, 2),
             'ort_gunluk': round(ort, 3),
             'durum': durum,
         })
@@ -842,50 +841,43 @@ def api_stok_durum():
 def export_stok_durumu():
     rows = query(
         "SELECT s.sAciklama, s.sKodu, s.sBirimCinsi1, "
-        "ISNULL(s.lAsgariMiktar, 0) AS min_stok, "
-        "ISNULL(SUM(CASE WHEN d.nGirisCikis != 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS giris_30, "
         "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS cikis_30, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 THEN d.lCikisTutar ELSE 0 END), 0) AS tutar_30, "
         "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND CAST(d.dteIslemTarihi AS DATE) = CAST(GETDATE() AS DATE) "
-        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) AS bugun_satis, "
+        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) AS bugun_miktar, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND CAST(d.dteIslemTarihi AS DATE) = CAST(GETDATE() AS DATE) "
+        "    THEN d.lCikisTutar ELSE 0 END), 0) AS bugun_tutar, "
         "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND d.dteIslemTarihi >= DATEADD(DAY, -7, GETDATE()) "
         "    THEN d.lCikisMiktar1 ELSE 0 END), 0) / 7.0 AS ort_gunluk "
         "FROM tbStok s "
         "JOIN tbStokFisiDetayi d ON s.nStokID = d.nStokID "
         "WHERE d.dteIslemTarihi >= DATEADD(DAY, -30, GETDATE()) "
-        "AND d.lCikisMiktar1 < 100000 "
-        "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1, s.lAsgariMiktar "
+        "AND d.lCikisMiktar1 < 100000 AND d.nGirisCikis = 3 "
+        "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1 "
         "ORDER BY cikis_30 DESC"
     )
+    durum_ad = {'satilmadi': 'Bugun Satilmadi', 'hizli': 'Hizli', 'yavas': 'Yavas', 'normal': 'Normal'}
     satirlar = []
     for r in rows:
-        giris = float(r['giris_30'])
         cikis = float(r['cikis_30'])
-        net = giris - cikis
+        bugun_m = float(r['bugun_miktar'])
         ort = float(r['ort_gunluk'])
-        min_s = float(r['min_stok'])
-        if min_s > 0 and net <= min_s:
-            durum = 'Kritik'
-        elif net <= 0:
-            durum = 'Yok'
-        elif ort > 0 and net < ort:
-            durum = 'Dusuk'
-        else:
-            durum = 'Normal'
+        if bugun_m == 0 and ort > 0: durum = 'satilmadi'
+        elif ort > 0 and bugun_m >= ort * 1.1: durum = 'hizli'
+        elif ort > 0 and bugun_m < ort * 0.4: durum = 'yavas'
+        else: durum = 'normal'
         satirlar.append([
-            (r['sAciklama'] or '').strip(),
-            (r['sKodu'] or '').strip(),
+            (r['sAciklama'] or '').strip(), (r['sKodu'] or '').strip(),
             (r['sBirimCinsi1'] or 'AD').strip(),
-            round(giris, 3), round(cikis, 3), round(net, 3),
-            round(float(r['bugun_satis']), 3),
-            round(ort, 3),
-            round(min_s, 3),
-            durum,
+            round(bugun_m, 3), round(float(r['bugun_tutar']), 2),
+            round(ort, 3), round(cikis, 3), round(float(r['tutar_30']), 2),
+            durum_ad.get(durum, durum),
         ])
     tarih = date.today().isoformat()
     buf = make_excel([{
-        'baslik': f'Stok Durumu {tarih}',
-        'sutunlar': ['Urun', 'Kod', 'Birim', '30G Giris', '30G Cikis', 'Net Stok',
-                     'Bugun Satis', 'Ort/Gun', 'Min Stok', 'Durum'],
+        'baslik': f'Satis Hizi Raporu {tarih}',
+        'sutunlar': ['Urun', 'Kod', 'Birim', 'Bugun Miktar', 'Bugun Tutar',
+                     'Ort/Gun', '30G Miktar', '30G Tutar', 'Durum'],
         'satirlar': satirlar,
     }])
     return excel_response(buf, f'stok_durumu_{tarih}.xlsx')
