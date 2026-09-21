@@ -22,8 +22,9 @@ def get_next_stok_id():
 def get_next_alisveris_id():
     result = query(
         "SELECT TOP 1 nAlisverisID FROM tbAlisVeris "
-        "WHERE nAlisverisID LIKE 'D%' "
-        "ORDER BY CAST(SUBSTRING(nAlisverisID, 2, 8) AS INT) DESC"
+        "WHERE nAlisverisID LIKE ? "
+        "ORDER BY CAST(SUBSTRING(nAlisverisID, 2, 8) AS INT) DESC",
+        ['D%']
     )
     if result:
         last_id = result[0]['nAlisverisID'].strip()
