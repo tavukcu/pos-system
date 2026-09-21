@@ -779,6 +779,118 @@ def api_rapor_kasa():
     })
 
 
+# --- API: STOK DURUMU ---
+
+@app.route('/stok-durumu')
+def stok_durumu():
+    return render_template('stok_durumu.html')
+
+@app.route('/api/stok/durum')
+def api_stok_durum():
+    rows = query(
+        "SELECT s.sAciklama, s.sKodu, s.sBirimCinsi1, "
+        "ISNULL(s.lAsgariMiktar, 0) AS min_stok, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis != 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS giris_30, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS cikis_30, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND CAST(d.dteIslemTarihi AS DATE) = CAST(GETDATE() AS DATE) "
+        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) AS bugun_satis, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND d.dteIslemTarihi >= DATEADD(DAY, -7, GETDATE()) "
+        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) / 7.0 AS ort_gunluk "
+        "FROM tbStok s "
+        "JOIN tbStokFisiDetayi d ON s.nStokID = d.nStokID "
+        "WHERE d.dteIslemTarihi >= DATEADD(DAY, -30, GETDATE()) "
+        "AND d.lCikisMiktar1 < 100000 "
+        "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1, s.lAsgariMiktar "
+        "ORDER BY cikis_30 DESC"
+    )
+
+    result = []
+    for r in rows:
+        giris = float(r['giris_30'])
+        cikis = float(r['cikis_30'])
+        net = giris - cikis
+        ort = float(r['ort_gunluk'])
+        min_s = float(r['min_stok'])
+        bugun = float(r['bugun_satis'])
+
+        if min_s > 0 and net <= min_s:
+            durum = 'kritik'
+        elif net <= 0:
+            durum = 'yok'
+        elif ort > 0 and net < ort:
+            durum = 'dusuk'
+        else:
+            durum = 'normal'
+
+        result.append({
+            'ad': (r['sAciklama'] or '').strip(),
+            'kod': (r['sKodu'] or '').strip(),
+            'birim': (r['sBirimCinsi1'] or 'AD').strip(),
+            'giris': round(giris, 3),
+            'cikis': round(cikis, 3),
+            'net': round(net, 3),
+            'min_stok': round(min_s, 3),
+            'bugun': round(bugun, 3),
+            'ort_gunluk': round(ort, 3),
+            'durum': durum,
+        })
+
+    return jsonify(result)
+
+
+@app.route('/api/export/stok_durumu')
+def export_stok_durumu():
+    rows = query(
+        "SELECT s.sAciklama, s.sKodu, s.sBirimCinsi1, "
+        "ISNULL(s.lAsgariMiktar, 0) AS min_stok, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis != 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS giris_30, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS cikis_30, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND CAST(d.dteIslemTarihi AS DATE) = CAST(GETDATE() AS DATE) "
+        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) AS bugun_satis, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND d.dteIslemTarihi >= DATEADD(DAY, -7, GETDATE()) "
+        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) / 7.0 AS ort_gunluk "
+        "FROM tbStok s "
+        "JOIN tbStokFisiDetayi d ON s.nStokID = d.nStokID "
+        "WHERE d.dteIslemTarihi >= DATEADD(DAY, -30, GETDATE()) "
+        "AND d.lCikisMiktar1 < 100000 "
+        "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1, s.lAsgariMiktar "
+        "ORDER BY cikis_30 DESC"
+    )
+    satirlar = []
+    for r in rows:
+        giris = float(r['giris_30'])
+        cikis = float(r['cikis_30'])
+        net = giris - cikis
+        ort = float(r['ort_gunluk'])
+        min_s = float(r['min_stok'])
+        if min_s > 0 and net <= min_s:
+            durum = 'Kritik'
+        elif net <= 0:
+            durum = 'Yok'
+        elif ort > 0 and net < ort:
+            durum = 'Dusuk'
+        else:
+            durum = 'Normal'
+        satirlar.append([
+            (r['sAciklama'] or '').strip(),
+            (r['sKodu'] or '').strip(),
+            (r['sBirimCinsi1'] or 'AD').strip(),
+            round(giris, 3), round(cikis, 3), round(net, 3),
+            round(float(r['bugun_satis']), 3),
+            round(ort, 3),
+            round(min_s, 3),
+            durum,
+        ])
+    tarih = date.today().isoformat()
+    buf = make_excel([{
+        'baslik': f'Stok Durumu {tarih}',
+        'sutunlar': ['Urun', 'Kod', 'Birim', '30G Giris', '30G Cikis', 'Net Stok',
+                     'Bugun Satis', 'Ort/Gun', 'Min Stok', 'Durum'],
+        'satirlar': satirlar,
+    }])
+    return excel_response(buf, f'stok_durumu_{tarih}.xlsx')
+
+
 # --- API: URUN BAZLI RAPOR ---
 
 @app.route('/urun-rapor')

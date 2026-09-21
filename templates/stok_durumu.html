@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Stok Durumu - POS{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <h1>Stok Durumu <span style="font-size:13px;font-weight:400;color:#666">(Son 30 Gun)</span></h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" id="ara" placeholder="Urun ara..." oninput="filtrele()" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;width:200px">
+        <button class="btn btn-secondary" onclick="exportExcel()">&#8595; Excel</button>
+    </div>
+</div>
+
+<!-- OZET KARTLAR -->
+<div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px"></div>
+
+<!-- FILTRE BUTONLARI -->
+<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm active-filtre" id="f-hepsi" onclick="setFiltre('hepsi')">Tumu</button>
+    <button class="btn btn-secondary btn-sm" id="f-kritik" onclick="setFiltre('kritik')">&#9888; Kritik / Yok</button>
+    <button class="btn btn-secondary btn-sm" id="f-dusuk" onclick="setFiltre('dusuk')">&#9650; Dusuk</button>
+    <button class="btn btn-secondary btn-sm" id="f-bugun" onclick="setFiltre('bugun')">Bugun Satilan</button>
+</div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Urun</th>
+                    <th style="text-align:right">Bugun Satis</th>
+                    <th style="text-align:right">Net Stok</th>
+                    <th style="text-align:right">30G Giris</th>
+                    <th style="text-align:right">30G Cikis</th>
+                    <th style="text-align:right">Ort/Gun</th>
+                    <th style="text-align:center">Durum</th>
+                </tr>
+            </thead>
+            <tbody id="stok-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.badge-yok    { background:#dc3545;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
+.badge-kritik { background:#fd7e14;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
+.badge-dusuk  { background:#ffc107;color:#000;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
+.badge-normal { background:#198754;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600 }
+.btn-sm { padding:6px 12px;font-size:12px; }
+.active-filtre { background:var(--primary) !important;color:#fff !important;border-color:var(--primary) !important; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allData = [];
+let aktifFiltre = 'hepsi';
+
+document.addEventListener('DOMContentLoaded', yukle);
+
+async function yukle() {
+    document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#999">Yukleniyor...</td></tr>';
+    allData = await fetch('/api/stok/durum').then(r => r.json());
+    renderOzet(allData);
+    filtrele();
+}
+
+function renderOzet(data) {
+    const yok    = data.filter(d => d.durum === 'yok').length;
+    const kritik = data.filter(d => d.durum === 'kritik').length;
+    const dusuk  = data.filter(d => d.durum === 'dusuk').length;
+    const bugunVar = data.filter(d => d.bugun > 0).length;
+    const bugunTop = data.reduce((s, d) => s + d.bugun, 0);
+
+    document.getElementById('ozet-cards').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value">${data.length}</div>
+            <div class="stat-label">Aktif Urun</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('kritik')">
+            <div class="stat-value" style="color:#dc3545">${yok + kritik}</div>
+            <div class="stat-label">Kritik / Tukenmis</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('dusuk')">
+            <div class="stat-value" style="color:#fd7e14">${dusuk}</div>
+            <div class="stat-label">Dusuk Stok</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('bugun')">
+            <div class="stat-value" style="color:#198754">${bugunVar}</div>
+            <div class="stat-label">Bugun Satilan Cesit</div>
+        </div>
+    `;
+}
+
+function setFiltre(f) {
+    aktifFiltre = f;
+    ['hepsi','kritik','dusuk','bugun'].forEach(id => {
+        document.getElementById('f-' + id).classList.toggle('active-filtre', id === f);
+    });
+    filtrele();
+}
+
+function filtrele() {
+    const q = document.getElementById('ara').value.toLowerCase();
+    let data = allData;
+
+    if (aktifFiltre === 'kritik') data = data.filter(d => d.durum === 'yok' || d.durum === 'kritik');
+    else if (aktifFiltre === 'dusuk') data = data.filter(d => d.durum === 'dusuk');
+    else if (aktifFiltre === 'bugun') data = data.filter(d => d.bugun > 0);
+
+    if (q) data = data.filter(d => d.ad.toLowerCase().includes(q) || d.kod.toLowerCase().includes(q));
+
+    renderTablo(data);
+}
+
+function renderTablo(data) {
+    if (!data.length) {
+        document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#999">Kayit bulunamadi</td></tr>';
+        return;
+    }
+    const birimFmt = (val, birim) => birim === 'KG' ? val.toFixed(2) + ' KG' : val.toFixed(0) + ' ' + birim;
+    document.getElementById('stok-tbody').innerHTML = data.map(d => {
+        const rowBg = d.durum === 'yok' ? 'background:#fff5f5' :
+                      d.durum === 'kritik' ? 'background:#fff8f0' :
+                      d.durum === 'dusuk' ? 'background:#fffdf0' : '';
+        const netRenk = d.net <= 0 ? 'color:#dc3545;font-weight:700' :
+                        d.durum === 'kritik' ? 'color:#fd7e14;font-weight:700' :
+                        d.durum === 'dusuk' ? 'color:#e6a817;font-weight:600' :
+                        'color:#198754;font-weight:600';
+        const badge = `<span class="badge-${d.durum}">${
+            d.durum === 'yok' ? 'TUKENDI' :
+            d.durum === 'kritik' ? 'KRITIK' :
+            d.durum === 'dusuk' ? 'DUSUK' : 'NORMAL'
+        }</span>`;
+        return `<tr style="${rowBg}">
+            <td><strong>${esc(d.ad)}</strong><br><span style="font-size:11px;color:#999">${esc(d.kod)}</span></td>
+            <td style="text-align:right;color:${d.bugun > 0 ? '#0d6efd' : '#ccc'}">${d.bugun > 0 ? birimFmt(d.bugun, d.birim) : '-'}</td>
+            <td style="text-align:right;${netRenk}">${birimFmt(d.net, d.birim)}</td>
+            <td style="text-align:right;color:#198754">${birimFmt(d.giris, d.birim)}</td>
+            <td style="text-align:right;color:#666">${birimFmt(d.cikis, d.birim)}</td>
+            <td style="text-align:right;color:#666">${d.ort_gunluk > 0 ? birimFmt(d.ort_gunluk, d.birim) : '-'}</td>
+            <td style="text-align:center">${badge}</td>
+        </tr>`;
+    }).join('');
+}
+
+function exportExcel() {
+    window.location = '/api/export/stok_durumu';
+}
+
+function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}
