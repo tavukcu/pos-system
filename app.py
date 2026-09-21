@@ -576,14 +576,18 @@ def api_borclu_odeme(musteri_id):
     if not rows:
         return jsonify({'error': 'Borclu kayit bulunamadi'}), 404
 
-    # En eskiden baslayarak odeme tutari kadarini isaretle
+    # En eskiden baslayarak, tutari tamamen karsilayan kayitlari isaretle
     remaining = tutar
     odeme_ids = []
     for r in rows:
         if remaining <= 0:
             break
-        odeme_ids.append(r['nOdemeID'])
-        remaining -= float(r['lNetTutar'])
+        kayit_tutari = float(r['lNetTutar'])
+        if remaining >= kayit_tutari - 0.01:  # tam karsiliyorsa kapat
+            odeme_ids.append(r['nOdemeID'])
+            remaining -= kayit_tutari
+        else:
+            break  # yetmiyorsa dur
 
     conn = get_connection()
     cursor = conn.cursor()
