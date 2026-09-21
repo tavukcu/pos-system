@@ -21,6 +21,7 @@
                     <th style="text-align:center">Islem</th>
                     <th style="text-align:right">Toplam Borc</th>
                     <th>Son Islem</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody id="borclu-tbody"></tbody>
@@ -28,10 +29,27 @@
                 <tr>
                     <th colspan="3" style="text-align:right">GENEL TOPLAM</th>
                     <th id="genel-toplam" style="text-align:right"></th>
-                    <th></th>
+                    <th colspan="2"></th>
                 </tr>
             </tfoot>
         </table>
+    </div>
+</div>
+
+<!-- ODEME AL MODAL -->
+<div id="odeme-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1100;justify-content:center;align-items:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;position:relative">
+        <button onclick="closeOdeme()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 id="odeme-title" style="margin:0 0 4px"></h3>
+        <p style="margin:0 0 16px;color:#666;font-size:13px">Toplam Borc: <strong id="odeme-toplam-label" style="color:#dc3545"></strong></p>
+        <div class="form-group" style="margin-bottom:16px">
+            <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Odeme Tutari (TL)</label>
+            <input type="number" id="odeme-tutar" step="0.01" min="0.01" style="width:100%;padding:10px;font-size:18px;font-weight:700;border:2px solid #dee2e6;border-radius:8px;text-align:right;box-sizing:border-box">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-secondary" onclick="closeOdeme()">Iptal</button>
+            <button class="btn btn-success btn-lg" onclick="confirmOdeme()">Odemeyi Onayla</button>
+        </div>
     </div>
 </div>
 
@@ -91,12 +109,13 @@ function renderTable(data) {
     tbody.innerHTML = data.map(m => {
         genel += m.toplam_borc;
         const renk = m.toplam_borc > 1000 ? '#dc3545' : m.toplam_borc > 200 ? '#fd7e14' : '#333';
-        return `<tr style="cursor:pointer" onclick="showDetay(${m.id}, '${escHtml(m.adi + ' ' + m.soyadi)}', '${escHtml(m.telefon)}', ${m.toplam_borc})">
-            <td><strong>${escHtml(m.adi)} ${escHtml(m.soyadi)}</strong></td>
+        return `<tr>
+            <td style="cursor:pointer" onclick="showDetay(${m.id}, '${escHtml(m.adi + ' ' + m.soyadi)}', '${escHtml(m.telefon)}', ${m.toplam_borc})"><strong>${escHtml(m.adi)} ${escHtml(m.soyadi)}</strong></td>
             <td>${escHtml(m.telefon)}</td>
             <td style="text-align:center">${m.veresiye_sayisi}</td>
             <td style="text-align:right;font-weight:700;color:${renk}">${formatMoney(m.toplam_borc)}</td>
             <td>${m.son_islem}</td>
+            <td><button class="btn btn-success" style="padding:4px 12px;font-size:13px;white-space:nowrap" onclick="openOdeme(${m.id},'${escHtml(m.adi + ' ' + m.soyadi)}',${m.toplam_borc})">Odeme Al</button></td>
         </tr>`;
     }).join('');
     document.getElementById('genel-toplam').innerHTML = `<strong style="color:#dc3545">${formatMoney(genel)}</strong>`;
@@ -137,6 +156,57 @@ function closeDetay() {
 document.getElementById('detay-modal').addEventListener('click', function(e) {
     if (e.target === this) closeDetay();
 });
+
+let odemeMusteri = null;
+
+function openOdeme(id, ad, toplam) {
+    odemeMusteri = { id, ad, toplam };
+    document.getElementById('odeme-title').textContent = ad;
+    document.getElementById('odeme-toplam-label').textContent = formatMoney(toplam);
+    document.getElementById('odeme-tutar').value = toplam.toFixed(2);
+    document.getElementById('odeme-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('odeme-tutar').select(), 50);
+}
+
+function closeOdeme() {
+    document.getElementById('odeme-modal').style.display = 'none';
+    odemeMusteri = null;
+}
+document.getElementById('odeme-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeOdeme();
+});
+
+async function confirmOdeme() {
+    if (!odemeMusteri) return;
+    const tutar = parseFloat(document.getElementById('odeme-tutar').value);
+    if (!tutar || tutar <= 0) { alert('Gecerli bir tutar girin'); return; }
+    if (tutar > odemeMusteri.toplam + 0.01) {
+        if (!confirm(`Girilen tutar (${formatMoney(tutar)}) toplam borcu (${formatMoney(odemeMusteri.toplam)}) asiyor. Devam edilsin mi?`)) return;
+    }
+
+    const btn = document.querySelector('#odeme-modal .btn-success');
+    btn.disabled = true; btn.textContent = 'Isleniyor...';
+
+    try {
+        const res = await fetch(`/api/borclu/${odemeMusteri.id}/odeme`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tutar })
+        }).then(r => r.json());
+
+        if (res.ok) {
+            closeOdeme();
+            await loadBorclu();
+            alert(`Odeme alindi! ${res.odendi_sayisi} islem kapatildi.`);
+        } else {
+            alert('Hata: ' + (res.error || 'Bilinmeyen hata'));
+        }
+    } catch(e) {
+        alert('Hata: ' + e.message);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Odemeyi Onayla';
+    }
+}
 
 function escHtml(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

@@ -552,6 +552,46 @@ def api_borclu():
         'son_islem': r['son_islem'].strftime('%d.%m.%Y') if r['son_islem'] else '',
     } for r in rows])
 
+@app.route('/api/borclu/<int:musteri_id>/odeme', methods=['POST'])
+def api_borclu_odeme(musteri_id):
+    tutar = float(request.json.get('tutar', 0))
+    if tutar <= 0:
+        return jsonify({'error': 'Gecersiz tutar'}), 400
+
+    # Veresiye kayitlari en eskiden yeniye
+    rows = query(
+        "SELECT o.nOdemeID, a.lNetTutar FROM tbOdeme o "
+        "JOIN tbAlisVeris a ON RTRIM(o.nAlisverisID) = RTRIM(a.nAlisverisID) "
+        "WHERE a.nMusteriID = ? AND RTRIM(o.sOdemeSekli) = 'V' "
+        "AND a.lNetTutar < 10000000 "
+        "ORDER BY a.dteKayitTarihi ASC",
+        [musteri_id]
+    )
+    if not rows:
+        return jsonify({'error': 'Borclu kayit bulunamadi'}), 404
+
+    # En eskiden baslayarak odeme tutari kadarini isaretle
+    remaining = tutar
+    odeme_ids = []
+    for r in rows:
+        if remaining <= 0:
+            break
+        odeme_ids.append(r['nOdemeID'])
+        remaining -= float(r['lNetTutar'])
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        for oid in odeme_ids:
+            cursor.execute(adapt_sql("UPDATE tbOdeme SET sOdemeSekli = 'T' WHERE RTRIM(nOdemeID) = ?"), [oid.strip() if hasattr(oid, 'strip') else oid])
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'error': str(e)}), 500
+    conn.close()
+    return jsonify({'ok': True, 'odendi_sayisi': len(odeme_ids)})
+
 @app.route('/api/borclu/<int:musteri_id>')
 def api_borclu_detay(musteri_id):
     rows = query(
