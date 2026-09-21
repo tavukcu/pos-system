@@ -24,13 +24,12 @@ def get_next_alisveris_id():
         "SELECT TOP 1 nAlisverisID FROM tbAlisVeris "
         "WHERE nAlisverisID LIKE ? "
         "ORDER BY CAST(SUBSTRING(nAlisverisID, 2, 8) AS INT) DESC",
-        ['D%']
+        ['P%']
     )
     if result:
-        last_id = result[0]['nAlisverisID'].strip()
-        num = int(''.join(c for c in last_id if c.isdigit()))
-        return f"D{num + 1:08d}"
-    return "D00000001"
+        num = int(''.join(c for c in result[0]['nAlisverisID'].strip() if c.isdigit()))
+        return f"P{num + 1:08d}"
+    return "P00000001"
 
 def get_next_fis_no(fis_tipi):
     today = date.today()
@@ -46,13 +45,16 @@ def get_next_islem_id():
     return int(result[0]['maxid']) + 1
 
 def get_next_odeme_id():
-    result = query("SELECT TOP 1 nOdemeID FROM tbOdeme ORDER BY nOdemeID DESC")
+    result = query(
+        "SELECT TOP 1 nOdemeID FROM tbOdeme "
+        "WHERE nOdemeID LIKE ? "
+        "ORDER BY CAST(SUBSTRING(nOdemeID, 2, 8) AS INT) DESC",
+        ['P%']
+    )
     if result:
-        last_id = result[0]['nOdemeID'].strip()
-        prefix = ''.join(c for c in last_id if c.isalpha())
-        num = int(''.join(c for c in last_id if c.isdigit()))
-        return f"{prefix}{num + 1:08d}"
-    return "O00000001"
+        num = int(''.join(c for c in result[0]['nOdemeID'].strip() if c.isdigit()))
+        return f"P{num + 1:08d}"
+    return "P00000001"
 
 def parse_tabak_barkod(barkod):
     """Pilic sektoru tabak barkod formati:
