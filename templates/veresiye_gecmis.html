@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Veresiye Gecmisi - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Veresiye Odeme Gecmisi</h1>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+    <div class="tarih-filtre">
+        <div class="tarih-grup">
+            <label>Baslangic</label>
+            <input type="date" id="tarih-bas" />
+        </div>
+        <div class="tarih-grup">
+            <label>Bitis</label>
+            <input type="date" id="tarih-bit" />
+        </div>
+        <div class="tarih-grup">
+            <label>Musteri</label>
+            <input type="text" id="musteri-filtre" placeholder="Ad ara..." style="width:180px" oninput="filterTable()">
+        </div>
+        <button class="btn btn-primary" onclick="yukle()">Getir</button>
+        <button class="btn btn-secondary" onclick="exportExcel()">&#8595; Excel</button>
+    </div>
+    <div class="hizli-filtre">
+        <button class="btn btn-secondary btn-sm" onclick="hizli(0)">Bugun</button>
+        <button class="btn btn-secondary btn-sm" onclick="hizli(7)">7 Gun</button>
+        <button class="btn btn-secondary btn-sm" onclick="hizli(30)">30 Gun</button>
+        <button class="btn btn-secondary btn-sm" onclick="hizli(90)">90 Gun</button>
+    </div>
+</div>
+
+<div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:20px"></div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th>Saat</th>
+                    <th>Musteri</th>
+                    <th style="text-align:right">Odeme Tutari</th>
+                    <th style="text-align:center">Kapanan Kayit</th>
+                </tr>
+            </thead>
+            <tbody id="log-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.tarih-filtre { display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px; }
+.tarih-grup { display:flex;flex-direction:column;gap:4px; }
+.tarih-grup label { font-size:12px;font-weight:600;color:var(--text-light); }
+.tarih-grup input[type=date] { width:150px; }
+.hizli-filtre { display:flex;gap:6px;flex-wrap:wrap; }
+.btn-sm { padding:6px 12px;font-size:12px; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allRows = [];
+
+function today() { return new Date().toISOString().split('T')[0]; }
+function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0]; }
+
+function hizli(gun) {
+    document.getElementById('tarih-bit').value = today();
+    document.getElementById('tarih-bas').value = gun === 0 ? today() : daysAgo(gun);
+    yukle();
+}
+
+async function yukle() {
+    const bas = document.getElementById('tarih-bas').value;
+    const bit = document.getElementById('tarih-bit').value;
+    if (!bas || !bit) return;
+    const data = await fetch(`/api/veresiye/gecmis?baslangic=${bas}&bitis=${bit}`).then(r => r.json());
+    allRows = data;
+    renderOzet(data);
+    filterTable();
+}
+
+function renderOzet(data) {
+    const toplamTutar = data.reduce((s, r) => s + r.tutar, 0);
+    const toplamKapanan = data.reduce((s, r) => s + r.kapanan, 0);
+    document.getElementById('ozet-cards').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value" style="color:#198754">${formatMoney(toplamTutar)}</div>
+            <div class="stat-label">Toplam Tahsilat</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${data.length}</div>
+            <div class="stat-label">Odeme Islemi</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${toplamKapanan}</div>
+            <div class="stat-label">Kapanan Veresiye</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${data.length > 0 ? formatMoney(toplamTutar / data.length) : '0,00 ₺'}</div>
+            <div class="stat-label">Ort. Odeme</div>
+        </div>
+    `;
+}
+
+function filterTable() {
+    const q = document.getElementById('musteri-filtre').value.toLowerCase();
+    const filtered = q ? allRows.filter(r => r.musteri_adi.toLowerCase().includes(q)) : allRows;
+    renderTable(filtered);
+}
+
+function renderTable(data) {
+    document.getElementById('log-tbody').innerHTML = data.map(r => `
+        <tr>
+            <td>${r.tarih}</td>
+            <td style="color:#666">${r.saat}</td>
+            <td><strong>${esc(r.musteri_adi)}</strong></td>
+            <td style="text-align:right;font-weight:700;color:#198754">${formatMoney(r.tutar)}</td>
+            <td style="text-align:center">${r.kapanan}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="5" style="text-align:center;color:#999;padding:32px">Kayit bulunamadi</td></tr>';
+}
+
+function exportExcel() {
+    const bas = document.getElementById('tarih-bas').value;
+    const bit = document.getElementById('tarih-bit').value;
+    if (!bas || !bit) { alert('Tarih secin'); return; }
+    window.location = `/api/export/veresiye_gecmis?baslangic=${bas}&bitis=${bit}`;
+}
+
+function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('tarih-bas').value = daysAgo(30);
+    document.getElementById('tarih-bit').value = today();
+    yukle();
+});
+</script>
+{% endblock %}

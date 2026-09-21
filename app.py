@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, Response
-from config import query, execute, get_connection, adapt_sql
+from config import query, execute, get_connection, adapt_sql, DB_MODE
 from datetime import datetime, date
 import traceback
 import threading
@@ -84,6 +84,32 @@ def parse_tabak_barkod(barkod):
         info['urun_kodu'] = barkod
 
     return info
+
+
+# --- STARTUP ---
+
+def init_log_table():
+    if DB_MODE != 'postgres':
+        return
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS veresiye_odeme_log (
+                id SERIAL PRIMARY KEY,
+                kayit_tarihi TIMESTAMP DEFAULT NOW(),
+                musteri_id INTEGER,
+                musteri_adi VARCHAR(200),
+                odeme_tutari NUMERIC(12,2),
+                kapanan_sayisi INTEGER
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+init_log_table()
 
 
 # --- ROUTES ---
@@ -829,6 +855,24 @@ def api_borclu_odeme(musteri_id):
         conn.close()
         return jsonify({'error': str(e)}), 500
     conn.close()
+
+    # Odeme log kaydi
+    try:
+        m = query("SELECT sAdi, sSoyadi FROM tbMusteri WHERE nMusteriID = ?", [musteri_id])
+        musteri_adi = ((m[0]['sAdi'] or '') + ' ' + (m[0]['sSoyadi'] or '')).strip() if m else ''
+        if DB_MODE == 'postgres':
+            conn2 = get_connection()
+            cur2 = conn2.cursor()
+            cur2.execute(
+                "INSERT INTO veresiye_odeme_log (musteri_id, musteri_adi, odeme_tutari, kapanan_sayisi) "
+                "VALUES (%s, %s, %s, %s)",
+                [musteri_id, musteri_adi, tutar, len(odeme_ids)]
+            )
+            conn2.commit()
+            conn2.close()
+    except Exception:
+        pass  # Log hatasi ana islemi etkilemesin
+
     return jsonify({'ok': True, 'odendi_sayisi': len(odeme_ids)})
 
 @app.route('/api/borclu/<int:musteri_id>')
@@ -853,6 +897,52 @@ def api_borclu_detay(musteri_id):
         'tutar': float(r['lNetTutar']),
         'miktar': float(r['lToplamMiktar']),
         'eleman': (r['eleman_adi'] or '').strip(),
+    } for r in rows])
+
+@app.route('/veresiye-gecmis')
+def veresiye_gecmis():
+    return render_template('veresiye_gecmis.html')
+
+@app.route('/api/veresiye/gecmis')
+def api_veresiye_gecmis():
+    if DB_MODE != 'postgres':
+        return jsonify([])
+    musteri_id = request.args.get('musteri_id', type=int)
+    bas = request.args.get('baslangic', '')
+    bit = request.args.get('bitis', '')
+
+    sql = ("SELECT id, kayit_tarihi, musteri_id, musteri_adi, odeme_tutari, kapanan_sayisi "
+           "FROM veresiye_odeme_log ")
+    params = []
+    conditions = []
+    if musteri_id:
+        conditions.append("musteri_id = %s")
+        params.append(musteri_id)
+    if bas:
+        conditions.append("kayit_tarihi::date >= %s")
+        params.append(bas)
+    if bit:
+        conditions.append("kayit_tarihi::date <= %s")
+        params.append(bit)
+    if conditions:
+        sql += "WHERE " + " AND ".join(conditions) + " "
+    sql += "ORDER BY kayit_tarihi DESC LIMIT 500"
+
+    conn = get_connection()
+    import psycopg2.extras
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    return jsonify([{
+        'id': r['id'],
+        'tarih': r['kayit_tarihi'].strftime('%d.%m.%Y') if r['kayit_tarihi'] else '',
+        'saat': r['kayit_tarihi'].strftime('%H:%M') if r['kayit_tarihi'] else '',
+        'musteri_id': r['musteri_id'],
+        'musteri_adi': (r['musteri_adi'] or '').strip(),
+        'tutar': float(r['odeme_tutari']),
+        'kapanan': int(r['kapanan_sayisi']),
     } for r in rows])
 
 @app.route('/api/rapor/urun_bazli')
@@ -1112,6 +1202,38 @@ def export_urun_rapor():
         'satirlar': satirlar,
     }])
     return excel_response(buf, f'urun_raporu_{baslangic}_{bitis}.xlsx')
+
+@app.route('/api/export/veresiye_gecmis')
+def export_veresiye_gecmis():
+    if DB_MODE != 'postgres':
+        return jsonify({'error': 'Sadece PostgreSQL'}), 400
+    bas = request.args.get('baslangic', date.today().isoformat())
+    bit = request.args.get('bitis', date.today().isoformat())
+    conn = get_connection()
+    import psycopg2.extras
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute(
+        "SELECT kayit_tarihi, musteri_adi, odeme_tutari, kapanan_sayisi "
+        "FROM veresiye_odeme_log "
+        "WHERE kayit_tarihi::date >= %s AND kayit_tarihi::date <= %s "
+        "ORDER BY kayit_tarihi DESC",
+        [bas, bit]
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    satirlar = [[
+        r['kayit_tarihi'].strftime('%d.%m.%Y') if r['kayit_tarihi'] else '',
+        r['kayit_tarihi'].strftime('%H:%M') if r['kayit_tarihi'] else '',
+        (r['musteri_adi'] or '').strip(),
+        round(float(r['odeme_tutari']), 2),
+        int(r['kapanan_sayisi']),
+    ] for r in rows]
+    buf = make_excel([{
+        'baslik': 'Veresiye Odeme Gecmisi',
+        'sutunlar': ['Tarih', 'Saat', 'Musteri', 'Tutar (TL)', 'Kapanan Kayit'],
+        'satirlar': satirlar,
+    }])
+    return excel_response(buf, f'veresiye_gecmis_{bas}_{bit}.xlsx')
 
 @app.route('/api/export/musteri/<int:musteri_id>')
 def export_musteri(musteri_id):
