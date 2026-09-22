@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canli Ekran - POS</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    background: #0a0e1a;
+    color: #fff;
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* HEADER */
+.tv-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 32px;
+    background: #111827;
+    border-bottom: 2px solid #1e3a5f;
+}
+.tv-logo {
+    font-size: 22px;
+    font-weight: 800;
+    color: #3b82f6;
+    letter-spacing: 2px;
+}
+.tv-tarih {
+    font-size: 16px;
+    color: #9ca3af;
+}
+.tv-saat {
+    font-size: 36px;
+    font-weight: 700;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+}
+
+/* ANA KARTLAR */
+.ozet-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    padding: 20px 32px 16px;
+}
+.ozet-kart {
+    background: #111827;
+    border-radius: 16px;
+    padding: 20px 28px;
+    text-align: center;
+    border: 1px solid #1f2937;
+    position: relative;
+    overflow: hidden;
+}
+.ozet-kart::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+}
+.ozet-kart.ciro::before  { background: linear-gradient(90deg, #10b981, #059669); }
+.ozet-kart.islem::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.ozet-kart.ort::before   { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.ozet-label {
+    font-size: 13px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+.ozet-value {
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.ozet-kart.ciro  .ozet-value { color: #10b981; }
+.ozet-kart.islem .ozet-value { color: #3b82f6; }
+.ozet-kart.ort   .ozet-value { color: #f59e0b; }
+
+/* ALT GRID */
+.alt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 20px;
+    padding: 0 32px 20px;
+    height: calc(100vh - 220px);
+    min-height: 0;
+}
+
+.panel {
+    background: #111827;
+    border-radius: 16px;
+    border: 1px solid #1f2937;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid #1f2937;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+.panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-track { background: transparent; }
+.panel-body::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+
+/* KASIYER SATIRLARI */
+.kasiyer-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    gap: 12px;
+    border-bottom: 1px solid #1a2234;
+}
+.kasiyer-row:last-child { border-bottom: none; }
+.kasiyer-ad {
+    font-size: 17px;
+    font-weight: 700;
+    width: 120px;
+    flex-shrink: 0;
+    color: #e5e7eb;
+}
+.kasiyer-bar-wrap {
+    flex: 1;
+    height: 10px;
+    background: #1f2937;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.kasiyer-bar {
+    height: 100%;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #2563eb, #3b82f6);
+    transition: width 0.6s ease;
+    min-width: 4px;
+}
+.kasiyer-tutar {
+    font-size: 18px;
+    font-weight: 700;
+    color: #10b981;
+    text-align: right;
+    min-width: 110px;
+    font-variant-numeric: tabular-nums;
+}
+.kasiyer-islem {
+    font-size: 13px;
+    color: #6b7280;
+    min-width: 50px;
+    text-align: right;
+}
+
+/* SATIS SATIRLARI */
+.satis-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 20px;
+    gap: 12px;
+    border-bottom: 1px solid #1a2234;
+    transition: background 0.4s;
+}
+.satis-row:last-child { border-bottom: none; }
+.satis-row.yeni { background: rgba(59,130,246,0.12); }
+.satis-saat {
+    font-size: 15px;
+    font-weight: 700;
+    color: #6b7280;
+    width: 52px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+.satis-musteri {
+    flex: 1;
+    font-size: 16px;
+    color: #e5e7eb;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.satis-kasiyer {
+    font-size: 13px;
+    color: #6b7280;
+    flex-shrink: 0;
+    width: 70px;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.satis-tutar {
+    font-size: 18px;
+    font-weight: 700;
+    color: #10b981;
+    min-width: 100px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* GUNCELLEME INDIKATORU */
+.refresh-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.no-data {
+    padding: 40px;
+    text-align: center;
+    color: #374151;
+    font-size: 15px;
+}
+</style>
+</head>
+<body>
+
+<div class="tv-header">
+    <div class="tv-logo">DINCER TAVUKCULUK</div>
+    <div class="tv-tarih" id="tv-tarih"></div>
+    <div class="tv-saat" id="tv-saat"></div>
+</div>
+
+<div class="ozet-grid">
+    <div class="ozet-kart ciro">
+        <div class="ozet-label">Gunluk Ciro</div>
+        <div class="ozet-value" id="oz-ciro">--</div>
+    </div>
+    <div class="ozet-kart islem">
+        <div class="ozet-label">Islem Sayisi</div>
+        <div class="ozet-value" id="oz-islem">--</div>
+    </div>
+    <div class="ozet-kart ort">
+        <div class="ozet-label">Ort. Fis</div>
+        <div class="ozet-value" id="oz-ort">--</div>
+    </div>
+</div>
+
+<div class="alt-grid">
+    <div class="panel">
+        <div class="panel-header">
+            <span class="refresh-dot"></span>Kasiyer Performansi
+        </div>
+        <div class="panel-body" id="kasiyer-panel"></div>
+    </div>
+    <div class="panel">
+        <div class="panel-header">
+            <span class="refresh-dot"></span>Son Satislar
+        </div>
+        <div class="panel-body" id="satis-panel"></div>
+    </div>
+</div>
+
+<script>
+let oncekiIds = new Set();
+
+// Saat guncelle
+function saatGuncelle() {
+    const now = new Date();
+    const saat = String(now.getHours()).padStart(2,'0') + ':' +
+                 String(now.getMinutes()).padStart(2,'0') + ':' +
+                 String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('tv-saat').textContent = saat;
+
+    const gunler = ['Pazar','Pazartesi','Sali','Carsamba','Persembe','Cuma','Cumartesi'];
+    const aylar = ['Ocak','Subat','Mart','Nisan','Mayis','Haziran',
+                   'Temmuz','Agustos','Eylul','Ekim','Kasim','Aralik'];
+    const tarih = gunler[now.getDay()] + ', ' +
+                  now.getDate() + ' ' + aylar[now.getMonth()] + ' ' + now.getFullYear();
+    document.getElementById('tv-tarih').textContent = tarih;
+}
+setInterval(saatGuncelle, 1000);
+saatGuncelle();
+
+function formatMoney(v) {
+    v = parseFloat(v) || 0;
+    return '₺' + v.toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function formatShort(v) {
+    v = parseFloat(v) || 0;
+    if (v >= 1000) return '₺' + (v/1000).toFixed(1) + 'B';
+    return '₺' + v.toFixed(0);
+}
+
+async function yukle() {
+    try {
+        const data = await fetch('/api/rapor/canli').then(r => r.json());
+        const o = data.ozet;
+
+        document.getElementById('oz-ciro').textContent = formatShort(o.toplam_ciro);
+        document.getElementById('oz-islem').textContent = o.islem_adedi;
+        document.getElementById('oz-ort').textContent = formatShort(o.ort_fis);
+
+        renderKasiyerler(data.elemanlar || []);
+        renderSatislar(data.satislar || []);
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+function renderKasiyerler(data) {
+    const el = document.getElementById('kasiyer-panel');
+    if (!data.length) {
+        el.innerHTML = '<div class="no-data">Henuz satis yok</div>';
+        return;
+    }
+    const max = Math.max(...data.map(k => k.toplam_ciro), 1);
+    el.innerHTML = data.map(k => {
+        const pct = Math.round(k.toplam_ciro / max * 100);
+        return `<div class="kasiyer-row">
+            <div class="kasiyer-ad">${esc(k.ad)}</div>
+            <div class="kasiyer-bar-wrap">
+                <div class="kasiyer-bar" style="width:${pct}%"></div>
+            </div>
+            <div class="kasiyer-islem">${k.islem_adedi} is</div>
+            <div class="kasiyer-tutar">${formatMoney(k.toplam_ciro)}</div>
+        </div>`;
+    }).join('');
+}
+
+function renderSatislar(data) {
+    const el = document.getElementById('satis-panel');
+    if (!data.length) {
+        el.innerHTML = '<div class="no-data">Henuz satis yok</div>';
+        return;
+    }
+    const yeniIds = new Set(data.map(s => s.id));
+    el.innerHTML = data.slice(0, 20).map(s => {
+        const isYeni = !oncekiIds.has(s.id) && oncekiIds.size > 0;
+        const musteri = s.musteri || 'Misafir';
+        return `<div class="satis-row ${isYeni ? 'yeni' : ''}">
+            <div class="satis-saat">${esc(s.saat)}</div>
+            <div class="satis-musteri">${esc(musteri)}</div>
+            <div class="satis-kasiyer">${esc(s.eleman)}</div>
+            <div class="satis-tutar">${formatMoney(s.tutar)}</div>
+        </div>`;
+    }).join('');
+    oncekiIds = yeniIds;
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+yukle();
+setInterval(yukle, 30000);
+</script>
+</body>
+</html>

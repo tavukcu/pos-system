@@ -1691,6 +1691,10 @@ def api_rapor_urun_bazli():
 def canli():
     return render_template('canli.html')
 
+@app.route('/tv')
+def tv():
+    return render_template('tv.html')
+
 @app.route('/api/rapor/canli')
 def api_rapor_canli():
     tarih = request.args.get('tarih', date.today().isoformat())
