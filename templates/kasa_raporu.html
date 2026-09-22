@@ -1,32 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Kasa Raporu - POS{% endblock %}
 {% block content %}
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div class="page-header">
     <h1>Kasa Raporu</h1>
-    <div style="display:flex;align-items:center;gap:8px">
-        <input type="date" id="tarih-input" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px">
-        <button class="btn btn-primary" onclick="loadKasa()">Getir</button>
-        <a id="export-btn" href="#" class="btn btn-secondary" onclick="exportKasa(event)">&#8595; Excel</a>
+    <a id="export-btn" href="#" class="btn btn-secondary" onclick="exportKasa(event)">&#8595; Excel</a>
+</div>
+
+<!-- FİLTRE -->
+<div class="card" style="padding:14px;margin-bottom:20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-secondary hizli-btn active" data-tip="bugun" onclick="hizliFiltre('bugun')">Bugun</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="dun" onclick="hizliFiltre('dun')">Dun</button>
+        <span style="color:#dee2e6;margin:0 4px">|</span>
+        <input type="date" id="tarih-input" onchange="loadKasa()"
+            style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
     </div>
 </div>
 
-<!-- OZET KARTLAR -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px" id="ozet-cards"></div>
+<!-- ÖZET KARTLAR -->
+<div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:20px"></div>
 
 <!-- ALT GRID -->
 <div class="grid grid-2">
-    <!-- KASIYERE GORE -->
     <div class="card">
         <h2>Kasiyere Gore</h2>
         <div class="table-wrapper">
-            <table id="kasiyer-table">
+            <table>
                 <thead><tr><th>Kasiyer</th><th style="text-align:right">Nakit</th><th style="text-align:right">Kart</th><th style="text-align:right">Veresiye</th><th style="text-align:right">Toplam</th><th style="text-align:center">Islem</th></tr></thead>
                 <tbody id="kasiyer-tbody"></tbody>
             </table>
         </div>
     </div>
 
-    <!-- SAATLIK DAGILIM -->
     <div class="card">
         <h2>Saatlik Dagilim</h2>
         <div class="chart-container" id="saat-chart" style="height:220px;margin-bottom:16px"></div>
@@ -41,18 +46,28 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+.hizli-btn.active { background:#2563eb !important; color:#fff !important; }
+</style>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('tarih-input').value = today;
-    loadKasa();
-});
-
+document.addEventListener('DOMContentLoaded', () => hizliFiltre('bugun'));
 document.getElementById('tarih-input').addEventListener('keydown', e => { if (e.key === 'Enter') loadKasa(); });
+
+function hizliFiltre(tip) {
+    document.querySelectorAll('.hizli-btn').forEach(b => b.classList.toggle('active', b.dataset.tip === tip));
+    const d = new Date();
+    if (tip === 'dun') d.setDate(d.getDate() - 1);
+    document.getElementById('tarih-input').value = fmtDate(d);
+    loadKasa();
+}
+
+function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 
 function exportKasa(e) {
     e.preventDefault();
-    const tarih = document.getElementById('tarih-input').value || new Date().toISOString().split('T')[0];
+    const tarih = document.getElementById('tarih-input').value || fmtDate(new Date());
     window.location = '/api/export/kasa?tarih=' + tarih;
 }
 
@@ -67,21 +82,25 @@ async function loadKasa() {
 
 function renderOzet(o) {
     document.getElementById('ozet-cards').innerHTML = `
-        <div class="stat-card">
-            <div class="stat-value" style="color:#198754">${formatMoney(o.nakit.tutar)}</div>
-            <div class="stat-label">Nakit (${o.nakit.islem} islem)</div>
+        <div class="stat-card" style="border-top:3px solid #10b981">
+            <div class="label">Nakit</div>
+            <div class="value" style="color:#10b981">${formatMoney(o.nakit.tutar)}</div>
+            <div style="font-size:12px;color:#999;margin-top:4px">${o.nakit.islem} islem</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value" style="color:#0d6efd">${formatMoney(o.kart.tutar)}</div>
-            <div class="stat-label">Kredi Karti (${o.kart.islem} islem)</div>
+        <div class="stat-card" style="border-top:3px solid #2563eb">
+            <div class="label">Kredi Karti</div>
+            <div class="value" style="color:#2563eb">${formatMoney(o.kart.tutar)}</div>
+            <div style="font-size:12px;color:#999;margin-top:4px">${o.kart.islem} islem</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value" style="color:#dc3545">${formatMoney(o.veresiye.tutar)}</div>
-            <div class="stat-label">Veresiye (${o.veresiye.islem} islem)</div>
+        <div class="stat-card" style="border-top:3px solid #f59e0b">
+            <div class="label">Veresiye</div>
+            <div class="value" style="color:#f59e0b">${formatMoney(o.veresiye.tutar)}</div>
+            <div style="font-size:12px;color:#999;margin-top:4px">${o.veresiye.islem} islem</div>
         </div>
-        <div class="stat-card" style="background:#f8f9fa;border:2px solid #dee2e6">
-            <div class="stat-value" style="color:#212529">${formatMoney(o.toplam.tutar)}</div>
-            <div class="stat-label"><strong>TOPLAM (${o.toplam.islem} islem)</strong></div>
+        <div class="stat-card" style="border-top:3px solid #334155">
+            <div class="label">TOPLAM</div>
+            <div class="value">${formatMoney(o.toplam.tutar)}</div>
+            <div style="font-size:12px;color:#999;margin-top:4px">${o.toplam.islem} islem</div>
         </div>
     `;
 }
@@ -93,10 +112,10 @@ function renderKasiyerler(data) {
     }
     document.getElementById('kasiyer-tbody').innerHTML = data.map(k => `
         <tr>
-            <td><strong>${escHtml(k.ad)}</strong></td>
-            <td style="text-align:right;color:#198754">${k.nakit > 0 ? formatMoney(k.nakit) : '-'}</td>
-            <td style="text-align:right;color:#0d6efd">${k.kart > 0 ? formatMoney(k.kart) : '-'}</td>
-            <td style="text-align:right;color:#dc3545">${k.veresiye > 0 ? formatMoney(k.veresiye) : '-'}</td>
+            <td><strong>${esc(k.ad)}</strong></td>
+            <td style="text-align:right;color:#10b981">${k.nakit > 0 ? formatMoney(k.nakit) : '-'}</td>
+            <td style="text-align:right;color:#2563eb">${k.kart > 0 ? formatMoney(k.kart) : '-'}</td>
+            <td style="text-align:right;color:#f59e0b">${k.veresiye > 0 ? formatMoney(k.veresiye) : '-'}</td>
             <td style="text-align:right;font-weight:700">${formatMoney(k.toplam)}</td>
             <td style="text-align:center">${k.islem}</td>
         </tr>
@@ -104,14 +123,12 @@ function renderKasiyerler(data) {
 }
 
 function renderSaatlik(data) {
+    const chart = document.getElementById('saat-chart');
     if (!data.length) {
-        document.getElementById('saat-chart').innerHTML = '<div style="text-align:center;padding:60px;color:#999">Veri yok</div>';
+        chart.innerHTML = '<div style="text-align:center;padding:60px;color:#999">Veri yok</div>';
         document.getElementById('saat-tbody').innerHTML = '';
         return;
     }
-
-    // Chart
-    const chart = document.getElementById('saat-chart');
     chart.innerHTML = '';
     const maxTutar = Math.max(...data.map(s => s.tutar), 1);
     data.forEach(s => {
@@ -122,8 +139,6 @@ function renderSaatlik(data) {
         bar.innerHTML = `<span class="bar-value">${formatShort(s.tutar)}</span><span class="bar-label">${s.saat}:00</span>`;
         chart.appendChild(bar);
     });
-
-    // Table
     document.getElementById('saat-tbody').innerHTML = data.map(s => `
         <tr>
             <td><strong>${s.saat}:00 - ${s.saat + 1}:00</strong></td>
@@ -133,8 +148,6 @@ function renderSaatlik(data) {
     `).join('');
 }
 
-function escHtml(s) {
-    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>
 {% endblock %}
