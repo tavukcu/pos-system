@@ -2002,6 +2002,34 @@ CREATE TABLE IF NOT EXISTS tbstokfisimaster (
 """
 
 MIGRATE_INDEXES_SQL = """
+CREATE TABLE IF NOT EXISTS tbstokfisimaster (
+    nstokfisiid INTEGER PRIMARY KEY,
+    sfistipi VARCHAR(3) DEFAULT '', dtefistarihi TIMESTAMP, ngiriscikis NUMERIC DEFAULT 0,
+    lfisno NUMERIC DEFAULT 0, nfirmaid INTEGER DEFAULT 0, sdepo VARCHAR(4) DEFAULT '',
+    dtevalortarihi TIMESTAMP, bpesinmi BOOLEAN DEFAULT FALSE, blistelendimi BOOLEAN DEFAULT FALSE,
+    bhizmetfaturasimi BOOLEAN DEFAULT FALSE,
+    ltoplammiktar NUMERIC DEFAULT 0, lmalbedeli NUMERIC DEFAULT 0, lmaliskontotutari NUMERIC DEFAULT 0,
+    ndipiskontoyuzdesi1 NUMERIC DEFAULT 0, ldipiskontotutari1 NUMERIC DEFAULT 0,
+    ndipiskontoyuzdesi2 NUMERIC DEFAULT 0, ldipiskontotutari2 NUMERIC DEFAULT 0,
+    ldipiskontotutari3 NUMERIC DEFAULT 0,
+    lekmaliyet1 NUMERIC DEFAULT 0, lekmaliyet2 NUMERIC DEFAULT 0, lekmaliyet3 NUMERIC DEFAULT 0,
+    nkdvorani1 NUMERIC DEFAULT 0, lkdvmatrahi1 NUMERIC DEFAULT 0, lkdv1 NUMERIC DEFAULT 0,
+    nkdvorani2 NUMERIC DEFAULT 0, lkdvmatrahi2 NUMERIC DEFAULT 0, lkdv2 NUMERIC DEFAULT 0,
+    nkdvorani3 NUMERIC DEFAULT 0, lkdvmatrahi3 NUMERIC DEFAULT 0, lkdv3 NUMERIC DEFAULT 0,
+    nkdvorani4 NUMERIC DEFAULT 0, lkdvmatrahi4 NUMERIC DEFAULT 0, lkdv4 NUMERIC DEFAULT 0,
+    nkdvorani5 NUMERIC DEFAULT 0, lkdvmatrahi5 NUMERIC DEFAULT 0, lkdv5 NUMERIC DEFAULT 0,
+    lnettutar NUMERIC DEFAULT 0, ntevkifatkdvorani NUMERIC DEFAULT 0,
+    ltevkifatkdvmatrahi NUMERIC DEFAULT 0, ltevkifatkdv NUMERIC DEFAULT 0,
+    sharekettipi VARCHAR(20) DEFAULT '', bmuhasebeyeislendimi BOOLEAN DEFAULT FALSE,
+    bfistamamlandimi BOOLEAN DEFAULT FALSE, ltransferfisiid NUMERIC DEFAULT 0,
+    stransferdepo VARCHAR(4) DEFAULT '', bfaturayaonustumu BOOLEAN DEFAULT FALSE,
+    skullaniciadi VARCHAR(60) DEFAULT '', dtekayittarihi TIMESTAMP, syaziile VARCHAR(60) DEFAULT '',
+    notvorani1 NUMERIC DEFAULT 0, lotvmatrahi1 NUMERIC DEFAULT 0, lotv1 NUMERIC DEFAULT 0,
+    notvorani2 NUMERIC DEFAULT 0, lotvmatrahi2 NUMERIC DEFAULT 0, lotv2 NUMERIC DEFAULT 0,
+    bkilitli BOOLEAN DEFAULT FALSE, befatura BOOLEAN DEFAULT FALSE,
+    sefaturatipi VARCHAR(20) DEFAULT '', sefaturaguid VARCHAR(40) DEFAULT '',
+    nefaturadurum NUMERIC DEFAULT 0
+);
 CREATE INDEX IF NOT EXISTS idx_stok_kod ON tbstok (skodu);
 CREATE INDEX IF NOT EXISTS idx_stok_aciklama ON tbstok (saciklama);
 CREATE INDEX IF NOT EXISTS idx_barkod_barkod ON tbstokbarkodu (sbarkod);
