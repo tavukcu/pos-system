@@ -1991,7 +1991,7 @@ CREATE TABLE IF NOT EXISTS tbstokfisimaster (
     ltevkifatkdvmatrahi NUMERIC DEFAULT 0, ltevkifatkdv NUMERIC DEFAULT 0,
     sharekettipi VARCHAR(20) DEFAULT '', bmuhasebeyeislendimi BOOLEAN DEFAULT FALSE,
     bfistamamlandimi BOOLEAN DEFAULT FALSE, ltransferFisiid NUMERIC DEFAULT 0,
-    stransferdepo VARCHAR(4) DEFAULT '', bfaturayaonustumu BOOLEAN DEFAULT FALSE,
+    stransferdepo VARCHAR(4) DEFAULT '', bfaturayadonustumu BOOLEAN DEFAULT FALSE,
     skullaniciadi VARCHAR(60) DEFAULT '', dtekayittarihi TIMESTAMP, syaziile VARCHAR(60) DEFAULT '',
     notvorani1 NUMERIC DEFAULT 0, lotvmatrahi1 NUMERIC DEFAULT 0, lotv1 NUMERIC DEFAULT 0,
     notvorani2 NUMERIC DEFAULT 0, lotvmatrahi2 NUMERIC DEFAULT 0, lotv2 NUMERIC DEFAULT 0,
@@ -2022,7 +2022,7 @@ CREATE TABLE IF NOT EXISTS tbstokfisimaster (
     ltevkifatkdvmatrahi NUMERIC DEFAULT 0, ltevkifatkdv NUMERIC DEFAULT 0,
     sharekettipi VARCHAR(20) DEFAULT '', bmuhasebeyeislendimi BOOLEAN DEFAULT FALSE,
     bfistamamlandimi BOOLEAN DEFAULT FALSE, ltransferfisiid NUMERIC DEFAULT 0,
-    stransferdepo VARCHAR(4) DEFAULT '', bfaturayaonustumu BOOLEAN DEFAULT FALSE,
+    stransferdepo VARCHAR(4) DEFAULT '', bfaturayadonustumu BOOLEAN DEFAULT FALSE,
     skullaniciadi VARCHAR(60) DEFAULT '', dtekayittarihi TIMESTAMP, syaziile VARCHAR(60) DEFAULT '',
     notvorani1 NUMERIC DEFAULT 0, lotvmatrahi1 NUMERIC DEFAULT 0, lotv1 NUMERIC DEFAULT 0,
     notvorani2 NUMERIC DEFAULT 0, lotvmatrahi2 NUMERIC DEFAULT 0, lotv2 NUMERIC DEFAULT 0,
@@ -2055,6 +2055,7 @@ DO $$ BEGIN
   BEGIN ALTER TABLE tbodeme ADD CONSTRAINT tbodeme_nodemeid_key UNIQUE (nodemeid); EXCEPTION WHEN others THEN NULL; END;
   BEGIN ALTER TABLE tbmusteri ADD CONSTRAINT tbmusteri_nmusteriid_key UNIQUE (nmusteriid); EXCEPTION WHEN others THEN NULL; END;
   BEGIN ALTER TABLE tbstokfisimaster ADD CONSTRAINT tbstokfisimaster_nstokfisiid_key UNIQUE (nstokfisiid); EXCEPTION WHEN others THEN NULL; END;
+  BEGIN ALTER TABLE tbstokfisimaster RENAME COLUMN bfaturayaonustumu TO bfaturayadonustumu; EXCEPTION WHEN others THEN NULL; END;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_sfm_tarih ON tbstokfisimaster (dtefistarihi);
 CREATE INDEX IF NOT EXISTS idx_sfm_fistipi ON tbstokfisimaster (sfistipi);
