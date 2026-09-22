@@ -78,7 +78,12 @@
 
 <!-- SAG: SON FATURALAR -->
 <div class="card">
-    <h2>Son Alis Faturalari</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">Son Alis Faturalari</h2>
+        <select id="filtre-tedarikci" onchange="yukleListe()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;min-width:160px">
+            <option value="">Tum Tedarikciler</option>
+        </select>
+    </div>
     <div class="table-wrapper">
         <table>
             <thead>
@@ -123,8 +128,20 @@ const TODAY = new Date().toISOString().split('T')[0];
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('f-tarih').value = TODAY;
+    yukleTedarikciler();
     yukleListe();
 });
+
+async function yukleTedarikciler() {
+    const data = await fetch('/api/alis-faturasi/tedarikciler').then(r => r.json());
+    const sel = document.getElementById('filtre-tedarikci');
+    data.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.firma_id;
+        opt.textContent = t.ad;
+        sel.appendChild(opt);
+    });
+}
 
 // --- URUN ARAMA ---
 function debounceAra() {
@@ -311,7 +328,9 @@ async function kaydetFatura() {
 
 // --- SON FATURALAR LiSTESi ---
 async function yukleListe() {
-    const data = await fetch('/api/alis-faturasi/liste').then(r => r.json());
+    const firmaId = document.getElementById('filtre-tedarikci').value;
+    const url = '/api/alis-faturasi/liste' + (firmaId ? '?firma_id=' + firmaId : '');
+    const data = await fetch(url).then(r => r.json());
     document.getElementById('liste-tbody').innerHTML = data.length
         ? data.map(f => `
             <tr>

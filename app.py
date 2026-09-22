@@ -768,8 +768,26 @@ def alis_faturasi():
     return render_template('alis_faturasi.html')
 
 
+@app.route('/api/alis-faturasi/tedarikciler')
+def api_alis_faturasi_tedarikciler():
+    rows = query(
+        "SELECT DISTINCT m.nFirmaID, ISNULL(f.sAciklama, '') AS ad "
+        "FROM tbStokFisiMaster m "
+        "LEFT JOIN tbFirma f ON f.nFirmaID = m.nFirmaID "
+        "WHERE m.sFisTipi = 'FA' AND m.nGirisCikis = 1 "
+        "ORDER BY ad"
+    )
+    return jsonify([{
+        'firma_id': int(r['nFirmaID']),
+        'ad': (r.get('ad') or '').strip(),
+    } for r in rows if (r.get('ad') or '').strip()])
+
+
 @app.route('/api/alis-faturasi/liste')
 def api_alis_faturasi_liste():
+    firma_id = request.args.get('firma_id', type=int)
+    filtre = "AND m.nFirmaID = ?" if firma_id else ""
+    params = [firma_id] if firma_id else []
     rows = query(
         "SELECT TOP 100 m.nStokFisiID, m.dteFisTarihi AS tarih, "
         "m.lFisNo AS fis_no, m.lNetTutar AS toplam, "
@@ -781,8 +799,9 @@ def api_alis_faturasi_liste():
         "  SELECT nStokFisiID, COUNT(*) AS satir_sayisi "
         "  FROM tbStokFisiDetayi WHERE nGirisCikis = 1 GROUP BY nStokFisiID"
         ") d ON d.nStokFisiID = m.nStokFisiID "
-        "WHERE m.sFisTipi = 'FA' AND m.nGirisCikis = 1 "
-        "ORDER BY m.dteFisTarihi DESC, m.nStokFisiID DESC"
+        f"WHERE m.sFisTipi = 'FA' AND m.nGirisCikis = 1 {filtre} "
+        "ORDER BY m.dteFisTarihi DESC, m.nStokFisiID DESC",
+        params
     )
     return jsonify([{
         'fis_id': int(r['nStokFisiID']),
