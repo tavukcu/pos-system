@@ -5,113 +5,205 @@
     <h1>Urun Bazli Satis Raporu</h1>
 </div>
 
-<div class="card" style="margin-bottom:16px">
-    <div class="tarih-filtre">
-        <div class="tarih-grup">
-            <label>Baslangic</label>
-            <input type="date" id="tarih-bas" />
-        </div>
-        <div class="tarih-grup">
-            <label>Bitis</label>
-            <input type="date" id="tarih-bit" />
-        </div>
-        <button class="btn btn-primary" onclick="yukle()">Getir</button>
-        <button class="btn btn-secondary" onclick="exportExcel()">&#8595; Excel</button>
-    </div>
-    <div class="hizli-filtre">
-        <button class="btn btn-secondary btn-sm" onclick="hizli(0)">Bugun</button>
-        <button class="btn btn-secondary btn-sm" onclick="hizli(7)">7 Gun</button>
-        <button class="btn btn-secondary btn-sm" onclick="hizli(30)">30 Gun</button>
-        <button class="btn btn-secondary btn-sm" onclick="hizli(90)">90 Gun</button>
+<!-- FİLTRE -->
+<div class="card" style="padding:16px;margin-bottom:20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-secondary hizli-btn" data-tip="bugun" onclick="hizliFiltre('bugun')">Bugun</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="bu_hafta" onclick="hizliFiltre('bu_hafta')">Bu Hafta</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="bu_ay" onclick="hizliFiltre('bu_ay')">Bu Ay</button>
+        <button class="btn btn-secondary hizli-btn active" data-tip="son30" onclick="hizliFiltre('son30')">Son 30 Gun</button>
+        <span style="color:#dee2e6;margin:0 4px">|</span>
+        <input type="date" id="filtre-bas" onchange="yukle()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+        <span style="color:#999;font-size:13px">—</span>
+        <input type="date" id="filtre-bit" onchange="yukle()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+        <button onclick="exportExcel()" class="btn btn-secondary" style="margin-left:auto">&#8595; Excel</button>
     </div>
 </div>
 
-<div class="ur-stats">
+<!-- ÖZET KARTLAR -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:20px">
     <div class="stat-card">
         <div class="label">Toplam Ciro</div>
-        <div class="value success" id="ur-ciro">--</div>
+        <div class="value success" id="s-ciro">--</div>
     </div>
     <div class="stat-card">
         <div class="label">Urun Cesidi</div>
-        <div class="value primary" id="ur-cesit">--</div>
+        <div class="value primary" id="s-cesit">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Toplam Islem</div>
+        <div class="value" id="s-islem">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">En Cok Satan</div>
+        <div id="s-top" style="font-size:13px;font-weight:700;color:#2563eb;margin-top:4px;line-height:1.3">--</div>
     </div>
 </div>
 
+<!-- GRAFİK (top 10) -->
 <div class="card">
-    <h2>Urun Satis Detayi</h2>
+    <h2 style="margin-bottom:16px">En Cok Satan 10 Urun</h2>
+    <div style="overflow-x:auto">
+        <div id="chart-urun" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+</div>
+
+<!-- TABLO -->
+<div class="card" style="margin-top:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">Urun Listesi <span id="liste-sayisi" style="font-size:13px;font-weight:400;color:#666"></span></h2>
+        <input type="text" id="arama" placeholder="Urun ara..." oninput="filterListe()"
+            style="padding:6px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;width:200px">
+    </div>
     <div class="table-wrapper">
-        <table class="urun-tablo">
-            <thead><tr><th>#</th><th>Urun</th><th>Miktar</th><th>Tutar</th><th>Oran</th></tr></thead>
-            <tbody id="urun-table"></tbody>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Urun</th>
+                    <th style="text-align:center">Islem</th>
+                    <th style="text-align:right">Miktar</th>
+                    <th style="text-align:right">Tutar</th>
+                    <th style="text-align:right">Pay</th>
+                </tr>
+            </thead>
+            <tbody id="liste-tbody">
+                <tr><td colspan="6" style="text-align:center;color:#999;padding:20px">Yukleniyor...</td></tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="4" style="text-align:right">TOPLAM</th>
+                    <th id="liste-toplam" style="text-align:right;color:#0d6efd"></th>
+                    <th></th>
+                </tr>
+            </tfoot>
         </table>
     </div>
 </div>
-
-<style>
-.tarih-filtre { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
-.tarih-grup { display: flex; flex-direction: column; gap: 4px; }
-.tarih-grup label { font-size: 12px; font-weight: 600; color: var(--text-light); }
-.tarih-grup input { width: 150px; }
-.hizli-filtre { display: flex; gap: 6px; flex-wrap: wrap; }
-.btn-sm { padding: 6px 12px; font-size: 12px; }
-.ur-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
-.urun-tablo td, .urun-tablo th { padding: 8px; font-size: 13px; }
-.oran-bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--primary); min-width: 4px; vertical-align: middle; margin-right: 6px; }
-
-@media (max-width: 768px) {
-    .tarih-grup input { width: 130px; }
-    .tarih-filtre { gap: 6px; }
-    .ur-stats .stat-card .value { font-size: 18px; }
-    .ur-stats .stat-card { padding: 10px; }
-    .urun-tablo td, .urun-tablo th { padding: 6px 4px; font-size: 12px; }
-    .urun-tablo td:first-child, .urun-tablo th:first-child { display: none; }
-}
-</style>
 {% endblock %}
 
 {% block scripts %}
+<style>
+.hizli-btn.active { background:#2563eb !important; color:#fff !important; }
+</style>
 <script>
-function today() { return new Date().toISOString().split('T')[0]; }
-function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0]; }
+let tumData = [];
 
-function hizli(gun) {
-    document.getElementById('tarih-bit').value = today();
-    document.getElementById('tarih-bas').value = gun === 0 ? today() : daysAgo(gun);
+document.addEventListener('DOMContentLoaded', () => hizliFiltre('son30'));
+
+function hizliFiltre(tip) {
+    document.querySelectorAll('.hizli-btn').forEach(b => b.classList.toggle('active', b.dataset.tip === tip));
+    const today = new Date();
+    let bas, bit = fmtDate(today);
+    if (tip === 'bugun') {
+        bas = bit;
+    } else if (tip === 'bu_hafta') {
+        const d = new Date(today);
+        const dow = today.getDay() || 7;
+        d.setDate(today.getDate() - dow + 1);
+        bas = fmtDate(d);
+    } else if (tip === 'bu_ay') {
+        bas = fmtDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    } else {
+        const d = new Date(today);
+        d.setDate(today.getDate() - 29);
+        bas = fmtDate(d);
+    }
+    document.getElementById('filtre-bas').value = bas;
+    document.getElementById('filtre-bit').value = bit;
     yukle();
 }
 
+function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
 async function yukle() {
-    const bas = document.getElementById('tarih-bas').value;
-    const bit = document.getElementById('tarih-bit').value;
+    const bas = document.getElementById('filtre-bas').value;
+    const bit = document.getElementById('filtre-bit').value;
     if (!bas || !bit) return;
-
+    document.getElementById('liste-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px">Yukleniyor...</td></tr>';
     const data = await fetch(`/api/rapor/urun_bazli?baslangic=${bas}&bitis=${bit}`).then(r => r.json());
+    tumData = data.urunler || [];
+    renderOzet(data);
+    renderGrafik(tumData.slice(0, 10));
+    filterListe();
+}
 
-    document.getElementById('ur-ciro').textContent = formatMoney(data.toplam_ciro);
-    document.getElementById('ur-cesit').textContent = data.urun_sayisi;
+function renderOzet(d) {
+    document.getElementById('s-ciro').textContent = formatMoney(d.toplam_ciro);
+    document.getElementById('s-cesit').textContent = d.urun_sayisi;
+    const toplamIslem = (d.urunler || []).reduce((s, u) => s + u.islem, 0);
+    document.getElementById('s-islem').textContent = toplamIslem;
+    document.getElementById('s-top').textContent = d.urunler && d.urunler.length
+        ? d.urunler[0].ad + ' — ' + formatMoney(d.urunler[0].tutar)
+        : '--';
+}
 
-    document.getElementById('urun-table').innerHTML = data.urunler.map((u, i) =>
-        `<tr>
-            <td>${i + 1}</td>
-            <td><strong>${u.ad}</strong></td>
-            <td>${u.miktar.toFixed(u.birim === 'KG' ? 2 : 0)} ${u.birim}</td>
-            <td><strong>${formatMoney(u.tutar)}</strong></td>
-            <td><span class="oran-bar" style="width:${Math.max(u.oran, 1)}px"></span>${u.oran}%</td>
-        </tr>`
-    ).join('') || '<tr><td colspan="5">Veri bulunamadi</td></tr>';
+function renderGrafik(urunler) {
+    const el = document.getElementById('chart-urun');
+    el.innerHTML = '';
+    if (!urunler.length) return;
+    const maxTutar = urunler[0].tutar || 1;
+    urunler.forEach(u => {
+        const pct = Math.round(u.tutar / maxTutar * 100);
+        el.innerHTML += `
+        <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:160px;font-size:12px;font-weight:600;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${u.ad}">${u.ad}</div>
+            <div style="flex:1;background:#f1f5f9;border-radius:4px;height:22px;position:relative">
+                <div style="width:${pct}%;height:100%;background:#2563eb;border-radius:4px;min-width:4px"></div>
+                <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:600;color:#334155">${formatMoney(u.tutar)}</span>
+            </div>
+        </div>`;
+    });
+}
+
+function filterListe() {
+    const q = document.getElementById('arama').value.toLowerCase();
+    const filtered = q ? tumData.filter(u => u.ad.toLowerCase().includes(q)) : tumData;
+    renderListe(filtered);
+}
+
+function renderListe(urunler) {
+    document.getElementById('liste-sayisi').textContent = urunler.length ? `(${urunler.length} urun)` : '';
+    const tbody = document.getElementById('liste-tbody');
+    if (!urunler.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px">Kayit yok</td></tr>';
+        document.getElementById('liste-toplam').textContent = '';
+        return;
+    }
+    const toplamCiro = urunler.reduce((s, u) => s + u.tutar, 0);
+    const maxTutar = urunler[0].tutar || 1;
+    tbody.innerHTML = urunler.map((u, i) => {
+        const barW = Math.round(u.tutar / maxTutar * 60);
+        return `<tr>
+            <td style="color:#999;font-size:12px">${i+1}</td>
+            <td><strong>${esc(u.ad)}</strong></td>
+            <td style="text-align:center">${u.islem}</td>
+            <td style="text-align:right;color:#666">${u.miktar.toFixed(u.birim === 'KG' ? 2 : 0)} ${esc(u.birim)}</td>
+            <td style="text-align:right">
+                <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+                    <div style="width:60px;height:6px;background:#f1f5f9;border-radius:3px">
+                        <div style="width:${barW}px;height:100%;background:#2563eb;border-radius:3px"></div>
+                    </div>
+                    <strong>${formatMoney(u.tutar)}</strong>
+                </div>
+            </td>
+            <td style="text-align:right;color:#999;font-size:12px">${u.oran}%</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('liste-toplam').innerHTML = `<strong>${formatMoney(toplamCiro)}</strong>`;
 }
 
 function exportExcel() {
-    const bas = document.getElementById('tarih-bas').value;
-    const bit = document.getElementById('tarih-bit').value;
+    const bas = document.getElementById('filtre-bas').value;
+    const bit = document.getElementById('filtre-bit').value;
     if (!bas || !bit) { alert('Tarih secin'); return; }
     window.location = `/api/export/urun_rapor?baslangic=${bas}&bitis=${bit}`;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('tarih-bas').value = today();
-    document.getElementById('tarih-bit').value = today();
-    yukle();
-});
+function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 </script>
 {% endblock %}
