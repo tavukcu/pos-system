@@ -2001,7 +2001,7 @@ CREATE TABLE IF NOT EXISTS tbstokfisimaster (
 );
 """
 
-MIGRATE_INDEXES_SQL = """
+CREATE_TBSTOKFISIMASTER_SQL = """
 CREATE TABLE IF NOT EXISTS tbstokfisimaster (
     nstokfisiid INTEGER PRIMARY KEY,
     sfistipi VARCHAR(3) DEFAULT '', dtefistarihi TIMESTAMP, ngiriscikis NUMERIC DEFAULT 0,
@@ -2029,7 +2029,10 @@ CREATE TABLE IF NOT EXISTS tbstokfisimaster (
     bkilitli BOOLEAN DEFAULT FALSE, befatura BOOLEAN DEFAULT FALSE,
     sefaturatipi VARCHAR(20) DEFAULT '', sefaturaguid VARCHAR(40) DEFAULT '',
     nefaturadurum NUMERIC DEFAULT 0
-);
+)
+"""
+
+MIGRATE_INDEXES_SQL = """
 CREATE INDEX IF NOT EXISTS idx_stok_kod ON tbstok (skodu);
 CREATE INDEX IF NOT EXISTS idx_stok_aciklama ON tbstok (saciklama);
 CREATE INDEX IF NOT EXISTS idx_barkod_barkod ON tbstokbarkodu (sbarkod);
@@ -2135,6 +2138,7 @@ def api_migrate_index():
         return jsonify({'error': 'Unauthorized'}), 401
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute(CREATE_TBSTOKFISIMASTER_SQL)
     cursor.execute(MIGRATE_INDEXES_SQL)
     conn.commit()
     conn.close()
