@@ -1013,6 +1013,9 @@ def api_rapor_kasa():
             'V': {'tutar': 0, 'islem': 0}, 'T': {'tutar': 0, 'islem': 0}}
     for r in ozet_rows:
         s = (r['sekil'] or '').strip().upper()
+        # '1' kredi karti olarak say
+        if s == '1':
+            s = 'K'
         if s not in ozet:
             ozet[s] = {'tutar': 0, 'islem': 0}
         ozet[s]['tutar'] += float(r['toplam'])
