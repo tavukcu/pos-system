@@ -19,6 +19,7 @@
     <button class="btn btn-secondary btn-sm" id="f-hizli"     onclick="setFiltre('hizli')">&#9650; Hizli</button>
     <button class="btn btn-secondary btn-sm" id="f-yavas"     onclick="setFiltre('yavas')">&#9660; Yavas</button>
     <button class="btn btn-secondary btn-sm" id="f-bugun"     onclick="setFiltre('bugun')">Bugun Satilan</button>
+    <button class="btn btn-secondary btn-sm" id="f-kritik"    onclick="setFiltre('kritik')">&#9888; Kritik Stok</button>
 </div>
 
 <div class="card">
@@ -27,6 +28,7 @@
             <thead>
                 <tr>
                     <th>Urun</th>
+                    <th style="text-align:right">Mevcut Stok</th>
                     <th style="text-align:right">Bugun</th>
                     <th style="text-align:right">Bugun Tutar</th>
                     <th style="text-align:right">Ort./Gun</th>
@@ -57,7 +59,7 @@ let aktifFiltre = 'hepsi';
 document.addEventListener('DOMContentLoaded', yukle);
 
 async function yukle() {
-    document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#999">Yukleniyor...</td></tr>';
+    document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#999">Yukleniyor...</td></tr>';
     allData = await fetch('/api/stok/durum').then(r => r.json());
     renderOzet(allData);
     filtrele();
@@ -69,6 +71,8 @@ function renderOzet(data) {
     const yavas     = data.filter(d => d.durum === 'yavas').length;
     const bugunTop  = data.reduce((s, d) => s + d.bugun_tutar, 0);
     const bugunCesit = data.filter(d => d.bugun_miktar > 0).length;
+    const kritik    = data.filter(d => d.net_stok <= 0).length;
+    const pozitif   = data.filter(d => d.net_stok > 0).length;
 
     document.getElementById('ozet-cards').innerHTML = `
         <div class="stat-card">
@@ -79,9 +83,9 @@ function renderOzet(data) {
             <div class="stat-value" style="color:#198754">${bugunCesit}</div>
             <div class="stat-label">Bugun Satilan Cesit</div>
         </div>
-        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('satilmadi')">
-            <div class="stat-value" style="color:#dc3545">${satilmadi}</div>
-            <div class="stat-label">Bugun Satilmadi</div>
+        <div class="stat-card" style="cursor:pointer" onclick="setFiltre('kritik')">
+            <div class="stat-value" style="color:#dc3545">${kritik}</div>
+            <div class="stat-label">Kritik Stok (0 veya -)</div>
         </div>
         <div class="stat-card" style="cursor:pointer" onclick="setFiltre('hizli')">
             <div class="stat-value" style="color:#0d6efd">${hizli}</div>
@@ -96,7 +100,7 @@ function renderOzet(data) {
 
 function setFiltre(f) {
     aktifFiltre = f;
-    ['hepsi','satilmadi','hizli','yavas','bugun'].forEach(id => {
+    ['hepsi','satilmadi','hizli','yavas','bugun','kritik'].forEach(id => {
         document.getElementById('f-' + id).classList.toggle('active-filtre', id === f);
     });
     filtrele();
@@ -110,6 +114,7 @@ function filtrele() {
     else if (aktifFiltre === 'hizli')  data = data.filter(d => d.durum === 'hizli');
     else if (aktifFiltre === 'yavas')  data = data.filter(d => d.durum === 'yavas');
     else if (aktifFiltre === 'bugun')  data = data.filter(d => d.bugun_miktar > 0);
+    else if (aktifFiltre === 'kritik') data = data.filter(d => d.net_stok <= 0);
 
     if (q) data = data.filter(d => d.ad.toLowerCase().includes(q) || d.kod.toLowerCase().includes(q));
 
@@ -118,22 +123,25 @@ function filtrele() {
 
 function renderTablo(data) {
     if (!data.length) {
-        document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#999">Kayit bulunamadi</td></tr>';
+        document.getElementById('stok-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#999">Kayit bulunamadi</td></tr>';
         return;
     }
     const fmt = (val, birim) => birim === 'KG' ? val.toFixed(2) + ' KG' : val.toFixed(0) + ' ' + birim;
     document.getElementById('stok-tbody').innerHTML = data.map(d => {
-        const rowBg = d.durum === 'satilmadi' ? 'background:#fff5f5' :
-                      d.durum === 'yavas'     ? 'background:#fffdf0' :
-                      d.durum === 'hizli'     ? 'background:#f0f7ff' : '';
+        const rowBg = d.net_stok <= 0      ? 'background:#fff5f5' :
+                      d.durum === 'yavas'  ? 'background:#fffdf0' :
+                      d.durum === 'hizli'  ? 'background:#f0f7ff' : '';
         const badge = `<span class="badge-${d.durum}">${
             d.durum === 'satilmadi' ? 'SATILMADI' :
             d.durum === 'hizli'    ? '&#9650; HIZLI' :
             d.durum === 'yavas'    ? '&#9660; YAVAS' : 'NORMAL'
         }</span>`;
-        const ortBar = d.ort_gunluk > 0 ? `<div style="font-size:10px;color:#999;margin-top:2px">${fmt(d.ort_gunluk, d.birim)}/gun ort.</div>` : '';
+        const stokRenk = d.net_stok > 0 ? '#198754' : d.net_stok === 0 ? '#999' : '#dc3545';
+        const stokIcon = d.net_stok > 0 ? '' : d.net_stok < 0 ? '&#9888; ' : '';
+        const stokCell = `<span style="font-weight:700;color:${stokRenk}">${stokIcon}${fmt(Math.abs(d.net_stok), d.birim)}${d.net_stok < 0 ? ' (-)' : ''}</span>`;
         return `<tr style="${rowBg}">
             <td><strong>${esc(d.ad)}</strong><br><span style="font-size:11px;color:#999">${esc(d.kod)}</span></td>
+            <td style="text-align:right">${stokCell}</td>
             <td style="text-align:right;font-weight:700;color:${d.bugun_miktar > 0 ? '#0d6efd' : '#ccc'}">${d.bugun_miktar > 0 ? fmt(d.bugun_miktar, d.birim) : '-'}</td>
             <td style="text-align:right">${d.bugun_tutar > 0 ? formatMoney(d.bugun_tutar) : '-'}</td>
             <td style="text-align:right;color:#666">${d.ort_gunluk > 0 ? fmt(d.ort_gunluk, d.birim) : '-'}</td>

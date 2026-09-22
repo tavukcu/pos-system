@@ -23,6 +23,57 @@
     <div class="stat-card"><div class="stat-label">Nakit</div><div class="stat-value" id="st-nakit" style="color:#198754">--</div><div class="stat-change" id="st-nakit-label"></div></div>
     <div class="stat-card"><div class="stat-label">Kart</div><div class="stat-value" id="st-kart" style="color:#0d6efd">--</div><div class="stat-change" id="st-kart-label"></div></div>
     <div class="stat-card" style="cursor:pointer" onclick="location='/borclu'"><div class="stat-label">Toplam Borc</div><div class="stat-value" id="st-borc" style="color:#dc3545">--</div><div class="stat-change" id="st-borc-label"></div></div>
+    <div class="stat-card"><div class="stat-label">Bu Ay Ciro</div><div class="stat-value" id="st-ay-ciro" style="color:#6f42c1">--</div><div class="stat-change" id="st-ay-change"></div></div>
+    <div class="stat-card" style="cursor:pointer" onclick="location='/borclu'" id="st-eski-card"><div class="stat-label">30+ Gun Bekleyen</div><div class="stat-value" id="st-eski" style="color:#dc3545">--</div><div class="stat-change" id="st-eski-label"></div></div>
+</div>
+
+<!-- AYLIK HEDEF -->
+<div id="hedef-bolum" class="card" style="margin-bottom:16px;display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div>
+            <h2 style="margin:0;display:inline">Aylik Hedef</h2>
+            <span id="hedef-ay-adi" style="font-size:13px;font-weight:400;color:#666;margin-left:8px"></span>
+        </div>
+        <button onclick="hedefDuzenle()" style="background:none;border:1px solid #dee2e6;border-radius:8px;padding:4px 12px;font-size:13px;cursor:pointer;color:#666">Degistir</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;gap:4px">
+        <span id="hedef-ciro-label" style="font-size:15px;font-weight:700"></span>
+        <span id="hedef-kalan-label" style="font-size:13px;color:#666"></span>
+    </div>
+    <div style="background:#e9ecef;border-radius:8px;height:18px;overflow:hidden;margin-bottom:8px">
+        <div id="hedef-bar" style="height:100%;border-radius:8px;transition:width 0.6s ease;min-width:4px"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;flex-wrap:wrap;gap:4px">
+        <span id="hedef-pct-label"></span>
+        <span id="hedef-tahmin-label"></span>
+    </div>
+</div>
+
+<!-- HEDEF YOK BANNER -->
+<div id="hedef-yok" style="background:#f8f9fa;border:1px dashed #dee2e6;border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <span style="color:#666;font-size:14px">Bu ay icin hedef belirlenmemis</span>
+    <button onclick="hedefDuzenle()" class="btn btn-primary" style="padding:5px 16px;font-size:13px">Hedef Belirle</button>
+</div>
+
+<!-- HEDEF MODAL -->
+<div id="hedef-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;justify-content:center;align-items:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:360px;width:90%;position:relative">
+        <button onclick="hedefKapat()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 style="margin:0 0 4px" id="hedef-modal-baslik">Aylik Hedef</h3>
+        <p style="margin:0 0 16px;font-size:13px;color:#666" id="hedef-modal-alt"></p>
+        <div style="margin-bottom:16px">
+            <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Hedef Ciro (TL)</label>
+            <input type="number" id="hedef-input" step="1000" min="1"
+                style="width:100%;padding:12px;font-size:22px;font-weight:700;border:2px solid #dee2e6;border-radius:8px;text-align:right;box-sizing:border-box">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:space-between">
+            <button onclick="hedefSil()" class="btn btn-secondary" style="color:#dc3545;border-color:#dc3545">Sil</button>
+            <div style="display:flex;gap:8px">
+                <button onclick="hedefKapat()" class="btn btn-secondary">Iptal</button>
+                <button onclick="hedefKaydet()" class="btn btn-primary">Kaydet</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="grid grid-2">
@@ -65,9 +116,132 @@
     </div>
 </div>
 
+<!-- BORC YASLANDIRMA + DIKKAT GEREKEN BORCULAR -->
+<div class="grid grid-2">
+    <!-- BORC YASLANDIRMA -->
+    <div class="card">
+        <h2>Borc Yaslandirma</h2>
+        <div id="yaslandirma-ozet" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"></div>
+        <div id="yaslandirma-bar" style="display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px"></div>
+        <div id="yaslandirma-legend" style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:#666"></div>
+    </div>
+
+    <!-- DIKKAT GEREKEN BORCULAR -->
+    <div class="card">
+        <h2>Dikkat Gereken Borcular <span style="font-size:13px;font-weight:400;color:#666">30+ gun</span></h2>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Musteri</th><th style="text-align:center">Gun</th><th style="text-align:right">Borc</th><th></th></tr></thead>
+                <tbody id="eski-borclar"></tbody>
+            </table>
+        </div>
+        <div style="text-align:right;margin-top:8px">
+            <a href="/borclu" style="font-size:13px;color:#0d6efd">Tumu goster &rarr;</a>
+        </div>
+    </div>
+</div>
+
 <style>
 .stat-change { font-size:12px; color:#666; margin-top:3px; min-height:16px; }
 </style>
+<script>
+// --- AYLIK HEDEF ---
+function hedefKey() {
+    const now = new Date();
+    return `pos_hedef_${now.getFullYear()}_${now.getMonth() + 1}`;
+}
+
+function renderHedef(buAyCiro, gunler) {
+    const now = new Date();
+    const ayAdi = now.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+    document.getElementById('hedef-ay-adi').textContent = ayAdi;
+
+    const hedef = parseFloat(localStorage.getItem(hedefKey()) || '0');
+    if (!hedef) {
+        document.getElementById('hedef-bolum').style.display = 'none';
+        document.getElementById('hedef-yok').style.display = 'flex';
+        return;
+    }
+    document.getElementById('hedef-bolum').style.display = 'block';
+    document.getElementById('hedef-yok').style.display = 'none';
+
+    const pct = Math.min((buAyCiro / hedef) * 100, 100);
+    const kalan = Math.max(hedef - buAyCiro, 0);
+
+    // Renk: kırmızı<%50, turuncu<%80, yeşil>=%80
+    const renk = pct >= 80 ? '#198754' : pct >= 50 ? '#fd7e14' : '#dc3545';
+
+    document.getElementById('hedef-bar').style.width = pct.toFixed(1) + '%';
+    document.getElementById('hedef-bar').style.background = renk;
+    document.getElementById('hedef-ciro-label').innerHTML =
+        `<span style="color:${renk}">${formatMoney(buAyCiro)}</span> <span style="color:#999;font-weight:400;font-size:13px">/ ${formatMoney(hedef)}</span>`;
+    document.getElementById('hedef-kalan-label').textContent = kalan > 0
+        ? `Kalan: ${formatMoney(kalan)}`
+        : 'Hedefe ulasildi!';
+    document.getElementById('hedef-pct-label').innerHTML =
+        `<span style="color:${renk};font-weight:700">%${pct.toFixed(1)}</span> tamamlandi`;
+
+    // Tahmini ay sonu
+    const gecenGunSayisi = gunler.filter(g => g.ciro > 0).length;
+    if (gecenGunSayisi > 0) {
+        const gunlukOrt = buAyCiro / gecenGunSayisi;
+        const ayinSonGunu = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const kalanGun = ayinSonGunu - now.getDate();
+        const tahmin = buAyCiro + gunlukOrt * kalanGun;
+        const tahminPct = (tahmin / hedef * 100).toFixed(0);
+        document.getElementById('hedef-tahmin-label').textContent =
+            `Tahmini ay sonu: ${formatMoney(tahmin)} (%${tahminPct})`;
+    }
+}
+
+function hedefDuzenle() {
+    const hedef = parseFloat(localStorage.getItem(hedefKey()) || '0');
+    const now = new Date();
+    const ayAdi = now.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+    document.getElementById('hedef-modal-baslik').textContent = ayAdi + ' Hedefi';
+    document.getElementById('hedef-modal-alt').textContent = 'Bu ayin ciro hedefini girin.';
+    document.getElementById('hedef-input').value = hedef > 0 ? hedef : '';
+    document.getElementById('hedef-modal').style.display = 'flex';
+    setTimeout(() => { const i = document.getElementById('hedef-input'); i.focus(); i.select(); }, 50);
+}
+
+function hedefKapat() {
+    document.getElementById('hedef-modal').style.display = 'none';
+}
+
+function hedefKaydet() {
+    const val = parseFloat(document.getElementById('hedef-input').value);
+    if (!val || val <= 0) { alert('Gecerli bir hedef girin'); return; }
+    localStorage.setItem(hedefKey(), val);
+    hedefKapat();
+    // Sayfayı yeniden render et — buAyCiro ve gunler hali hazırda global scope'ta yok,
+    // en kolayı sayfayı yenile
+    location.reload();
+}
+
+function hedefSil() {
+    if (!confirm('Hedef silinsin mi?')) return;
+    localStorage.removeItem(hedefKey());
+    hedefKapat();
+    location.reload();
+}
+
+document.getElementById('hedef-modal').addEventListener('click', function(e) {
+    if (e.target === this) hedefKapat();
+});
+document.getElementById('hedef-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') hedefKaydet();
+    if (e.key === 'Escape') hedefKapat();
+});
+
+function openWA(telefon, ad, tutar) {
+    let tel = (telefon || '').replace(/[\s\-\(\)\+]/g, '');
+    if (tel.startsWith('0')) tel = '90' + tel.slice(1);
+    else if (!tel.startsWith('90')) tel = '90' + tel;
+    const msg = `Sayin ${ad}, ${formatMoney(tutar)} tutarindaki borcunuzu odemenizi rica ederiz. Tesekkurler.`;
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+</script>
 {% endblock %}
 
 {% block scripts %}
@@ -80,22 +254,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         new Date().toLocaleDateString('tr-TR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
 
     // Paralel yukle
-    const [daily, dun, kasa, borclu, top, hafta] = await Promise.all([
+    const [daily, dun, kasa, borclu, top, hafta, ay] = await Promise.all([
         fetch('/api/rapor/gunluk?tarih=' + today).then(r => r.json()),
         fetch('/api/rapor/gunluk?tarih=' + yesterday).then(r => r.json()),
         fetch('/api/rapor/kasa?tarih=' + today).then(r => r.json()),
         fetch('/api/borclu').then(r => r.json()),
         fetch('/api/rapor/en_cok_satan?gun=30').then(r => r.json()),
         fetch('/api/rapor/karsilastirma?tip=hafta').then(r => r.json()),
+        fetch('/api/rapor/karsilastirma?tip=ay').then(r => r.json()),
     ]);
 
     // --- STAT KARTLAR ---
-    function degisim(yeni, eski) {
+    function degisim(yeni, eski, etiket) {
         if (!eski) return '';
         const pct = ((yeni - eski) / eski * 100);
         const renk = pct >= 0 ? '#198754' : '#dc3545';
         const isaret = pct >= 0 ? '▲' : '▼';
-        return `<span style="color:${renk}">${isaret} ${Math.abs(pct).toFixed(1)}% dune gore</span>`;
+        return `<span style="color:${renk}">${isaret} ${Math.abs(pct).toFixed(1)}% ${etiket || 'dune gore'}</span>`;
     }
 
     document.getElementById('st-ciro').textContent = formatMoney(daily.toplam_ciro);
@@ -116,6 +291,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const toplamBorc = borclu.reduce((s, m) => s + m.toplam_borc, 0);
     document.getElementById('st-borc').textContent = formatMoney(toplamBorc);
     document.getElementById('st-borc-label').textContent = borclu.length + ' borclu musteri';
+
+    // Bu ay ciro
+    const buAyCiro = ay.bu_donem.reduce((s, r) => s + r.ciro, 0);
+    const gecenAyCiro = ay.gecen_donem.reduce((s, r) => s + r.ciro, 0);
+    document.getElementById('st-ay-ciro').textContent = formatMoney(buAyCiro);
+    document.getElementById('st-ay-change').innerHTML = degisim(buAyCiro, gecenAyCiro, 'gecen aya gore');
+    renderHedef(buAyCiro, ay.bu_donem);
+
+    // 30+ gun bekleyen
+    const eskiBorcular = borclu.filter(m => m.yaslik === 'eski');
+    const eskiToplam = eskiBorcular.reduce((s, m) => s + m.toplam_borc, 0);
+    document.getElementById('st-eski').textContent = eskiBorcular.length + ' kisi';
+    document.getElementById('st-eski-label').textContent = formatMoney(eskiToplam);
+    if (eskiBorcular.length > 0) {
+        document.getElementById('st-eski-card').style.borderLeft = '4px solid #dc3545';
+    }
 
     // --- SAATLIK GRAFIK ---
     const saatChart = document.getElementById('chart-saat');
@@ -177,6 +368,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             <td><strong>${p.urun}</strong></td>
             <td style="text-align:right">${formatMoney(p.tutar)}</td>
         </tr>`).join('');
+
+    // --- BORC YASLANDIRMA ---
+    const yeniB = borclu.filter(m => m.yaslik === 'yeni');
+    const ortaB = borclu.filter(m => m.yaslik === 'orta');
+    const eskiB = borclu.filter(m => m.yaslik === 'eski');
+    const topB = borclu.length || 1;
+
+    document.getElementById('yaslandirma-ozet').innerHTML = [
+        { label: 'Yeni <7g', count: yeniB.length, renk: '#198754', bg: '#e8f5e9', tutar: yeniB.reduce((s,m)=>s+m.toplam_borc,0) },
+        { label: 'Orta 7-30g', count: ortaB.length, renk: '#fd7e14', bg: '#fff3e0', tutar: ortaB.reduce((s,m)=>s+m.toplam_borc,0) },
+        { label: 'Eski 30+g', count: eskiB.length, renk: '#dc3545', bg: '#fde8e8', tutar: eskiB.reduce((s,m)=>s+m.toplam_borc,0) },
+    ].map(g => `
+        <div style="background:${g.bg};border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:${g.renk}">${g.count}</div>
+            <div style="font-size:11px;color:#666;margin:2px 0">${g.label}</div>
+            <div style="font-size:12px;font-weight:600;color:${g.renk}">${formatMoney(g.tutar)}</div>
+        </div>`).join('');
+
+    const barColors = ['#198754','#fd7e14','#dc3545'];
+    const barCounts = [yeniB.length, ortaB.length, eskiB.length];
+    document.getElementById('yaslandirma-bar').innerHTML = barCounts.map((c, i) =>
+        c > 0 ? `<div style="flex:${c};background:${barColors[i]};min-width:4px" title="${c} kisi"></div>` : ''
+    ).join('');
+    document.getElementById('yaslandirma-legend').innerHTML =
+        `<span><span style="display:inline-block;width:10px;height:10px;background:#198754;border-radius:2px;margin-right:4px"></span>Yeni</span>` +
+        `<span><span style="display:inline-block;width:10px;height:10px;background:#fd7e14;border-radius:2px;margin-right:4px"></span>Orta</span>` +
+        `<span><span style="display:inline-block;width:10px;height:10px;background:#dc3545;border-radius:2px;margin-right:4px"></span>Eski</span>`;
+
+    // Dikkat gereken (eski onlce, sonra orta, tutar azalan)
+    const dikkat = [...eskiB, ...ortaB].sort((a, b) => b.toplam_borc - a.toplam_borc).slice(0, 6);
+    document.getElementById('eski-borclar').innerHTML = dikkat.length
+        ? dikkat.map(m => {
+            const renk = m.yaslik === 'eski' ? '#dc3545' : '#fd7e14';
+            const bg = m.yaslik === 'eski' ? '#fde8e8' : '#fff3e0';
+            return `<tr>
+                <td style="cursor:pointer" onclick="location='/borclu'"><strong>${m.adi} ${m.soyadi}</strong></td>
+                <td style="text-align:center"><span style="background:${bg};color:${renk};padding:2px 7px;border-radius:10px;font-size:12px;font-weight:600">${m.gun}g</span></td>
+                <td style="text-align:right;font-weight:700;color:${renk}">${formatMoney(m.toplam_borc)}</td>
+                <td>${m.telefon ? `<button onclick="openWA('${m.telefon}','${m.adi} ${m.soyadi}',${m.toplam_borc})" style="padding:2px 8px;font-size:12px;background:#25D366;border:none;border-radius:6px;color:#fff;cursor:pointer">WA</button>` : ''}</td>
+            </tr>`;
+        }).join('')
+        : '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">Bekleme sorunu yok</td></tr>';
 
     // --- SON SATISLAR ---
     const sales = await fetch('/api/rapor/son_satislar').then(r => r.json());

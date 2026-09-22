@@ -434,22 +434,22 @@ def api_musteriler():
     search = request.args.get('q', '')
     if search:
         rows = query(
-            "SELECT TOP 50 nMusteriID, sAdi, sSoyadi, sTelefon1, sIl "
-            "FROM tbMusteri WHERE sAdi LIKE ? OR sSoyadi LIKE ? OR sTelefon1 LIKE ? "
+            "SELECT TOP 50 nMusteriID, sAdi, sSoyadi, sGSM, sIsIl "
+            "FROM tbMusteri WHERE sAdi LIKE ? OR sSoyadi LIKE ? OR sGSM LIKE ? "
             "ORDER BY sAdi",
             [f'%{search}%', f'%{search}%', f'%{search}%']
         )
     else:
         rows = query(
-            "SELECT TOP 50 nMusteriID, sAdi, sSoyadi, sTelefon1, sIl "
+            "SELECT TOP 50 nMusteriID, sAdi, sSoyadi, sGSM, sIsIl "
             "FROM tbMusteri ORDER BY sAdi"
         )
     return jsonify([{
         'id': r['nMusteriID'],
         'adi': (r['sAdi'] or '').strip(),
         'soyadi': (r['sSoyadi'] or '').strip(),
-        'telefon': (r['sTelefon1'] or '').strip(),
-        'il': (r['sIl'] or '').strip(),
+        'telefon': (r['sGSM'] or '').strip(),
+        'il': (r['sIsIl'] or '').strip(),
     } for r in rows])
 
 
@@ -467,7 +467,7 @@ def api_musteri_ekle():
     new_id = int(max_id[0]['maxid']) + 1
 
     execute(
-        adapt_sql("INSERT INTO tbMusteri (nMusteriID, sAdi, sSoyadi, sTelefon1, sIl) VALUES (?, ?, ?, ?, ?)"),
+        adapt_sql("INSERT INTO tbMusteri (nMusteriID, sAdi, sSoyadi, sGSM, sIsIl) VALUES (?, ?, ?, ?, ?)"),
         [new_id, adi, soyadi, telefon, il]
     )
     return jsonify({'ok': True, 'id': new_id})
@@ -484,7 +484,7 @@ def api_musteri_guncelle(musteri_id):
     il = (d.get('il') or '').strip()
 
     execute(
-        adapt_sql("UPDATE tbMusteri SET sAdi=?, sSoyadi=?, sTelefon1=?, sIl=? WHERE nMusteriID=?"),
+        adapt_sql("UPDATE tbMusteri SET sAdi=?, sSoyadi=?, sGSM=?, sIsIl=? WHERE nMusteriID=?"),
         [adi, soyadi, telefon, il, musteri_id]
     )
     return jsonify({'ok': True})
@@ -531,6 +531,17 @@ def api_musteri_gecmis(musteri_id):
         "ORDER BY a.dteKayitTarihi DESC",
         [musteri_id]
     )
+    # Veresiye borç durumu
+    veresiye_rows = query(
+        "SELECT ISNULL(SUM(a.lNetTutar), 0) AS veresiye_borc, COUNT(*) AS veresiye_bekleyen "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE a.nMusteriID = ? AND RTRIM(o.sOdemeSekli) = 'V' AND a.lNetTutar < 10000000",
+        [musteri_id]
+    )
+    veresiye_borc = float(veresiye_rows[0]['veresiye_borc']) if veresiye_rows else 0
+    veresiye_bekleyen = int(veresiye_rows[0]['veresiye_bekleyen']) if veresiye_rows else 0
+
     o = ozet[0]
     return jsonify({
         'ozet': {
@@ -539,6 +550,8 @@ def api_musteri_gecmis(musteri_id):
             'ort_fis': float(o['ort_fis']),
             'ilk': o['ilk_alisveris'].strftime('%d.%m.%Y') if o['ilk_alisveris'] else '',
             'son': o['son_alisveris'].strftime('%d.%m.%Y') if o['son_alisveris'] else '',
+            'veresiye_borc': veresiye_borc,
+            'veresiye_bekleyen': veresiye_bekleyen,
         },
         'odeme': odeme,
         'satislar': [{
@@ -551,6 +564,28 @@ def api_musteri_gecmis(musteri_id):
             'odeme': (r['odeme_sekli'] or '').strip(),
         } for r in satislar],
     })
+
+
+@app.route('/api/musteri/<int:musteri_id>/aylik')
+def api_musteri_aylik(musteri_id):
+    rows = query(
+        adapt_sql(
+            "SELECT YEAR(a.dteFaturaTarihi) AS yil, MONTH(a.dteFaturaTarihi) AS ay, "
+            "ISNULL(SUM(a.lNetTutar), 0) AS ciro, COUNT(*) AS islem "
+            "FROM tbAlisVeris a "
+            "WHERE a.nMusteriID = ? AND a.lNetTutar < 10000000 "
+            "AND a.dteFaturaTarihi >= DATEADD(month, -11, DATEADD(day, 1-DAY(GETDATE()), GETDATE())) "
+            "GROUP BY YEAR(a.dteFaturaTarihi), MONTH(a.dteFaturaTarihi) "
+            "ORDER BY yil, ay"
+        ),
+        [musteri_id]
+    )
+    ay_adlari = ['', 'Oca', 'Sub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Agu', 'Eyl', 'Eki', 'Kas', 'Ara']
+    return jsonify([{
+        'etiket': ay_adlari[int(r['ay'])] + ' ' + str(int(r['yil']))[2:],
+        'ciro': float(r['ciro']),
+        'islem': int(r['islem']),
+    } for r in rows])
 
 
 # --- API: RAPORLAR ---
@@ -614,7 +649,7 @@ def api_rapor_en_cok_satan():
 def api_rapor_son_satislar():
     rows = query(
         "SELECT TOP 50 a.nAlisverisID, a.sFisTipi, a.dteFaturaTarihi, "
-        "a.lFaturaNo, a.sAlisverisYapanAdi, a.sAlisverisYapanSoyadi, "
+        "a.dteKayitTarihi, a.lFaturaNo, a.sAlisverisYapanAdi, a.sAlisverisYapanSoyadi, "
         "a.lToplamMiktar, a.lNetTutar, a.sKullaniciAdi "
         "FROM tbAlisVeris a WHERE a.lNetTutar < 10000000 "
         "ORDER BY a.dteFaturaTarihi DESC, a.lFaturaNo DESC"
@@ -727,6 +762,195 @@ def api_rapor_karsilastirma():
 @app.route('/kasa-raporu')
 def kasa_raporu():
     return render_template('kasa_raporu.html')
+
+@app.route('/alis-faturasi')
+def alis_faturasi():
+    return render_template('alis_faturasi.html')
+
+
+@app.route('/api/alis-faturasi/liste')
+def api_alis_faturasi_liste():
+    rows = query(
+        "SELECT TOP 50 nStokFisiID, "
+        "MIN(dteIslemTarihi) AS tarih, "
+        "COUNT(*) AS satir_sayisi, "
+        "ISNULL(SUM(lGirisTutar), 0) AS toplam, "
+        "MIN(lFisNo) AS fis_no "
+        "FROM tbStokFisiDetayi "
+        "WHERE nGirisCikis = 1 "
+        "GROUP BY nStokFisiID "
+        "ORDER BY MIN(dteIslemTarihi) DESC, nStokFisiID DESC"
+    )
+    return jsonify([{
+        'fis_id': int(r['nStokFisiID']),
+        'tarih': r['tarih'].strftime('%d.%m.%Y') if r['tarih'] else '',
+        'satir': int(r['satir_sayisi']),
+        'toplam': float(r['toplam']),
+        'fis_no': int(r['fis_no'] or 0),
+    } for r in rows])
+
+
+@app.route('/api/alis-faturasi/<int:fis_id>')
+def api_alis_faturasi_detay(fis_id):
+    rows = query(
+        "SELECT d.nIslemID, d.nStokID, s.sAciklama, s.sBirimCinsi1, "
+        "d.lGirisMiktar1, d.lGirisFiyat, d.lGirisTutar, d.dteIslemTarihi "
+        "FROM tbStokFisiDetayi d "
+        "JOIN tbStok s ON d.nStokID = s.nStokID "
+        "WHERE d.nStokFisiID = ? AND d.nGirisCikis = 1 "
+        "ORDER BY d.nIslemID",
+        [fis_id]
+    )
+    return jsonify([{
+        'islem_id': int(r['nIslemID']),
+        'stok_id': int(r['nStokID']),
+        'urun': (r['sAciklama'] or '').strip(),
+        'birim': (r['sBirimCinsi1'] or '').strip(),
+        'miktar': float(r['lGirisMiktar1']),
+        'fiyat': float(r['lGirisFiyat']),
+        'tutar': float(r['lGirisTutar']),
+        'tarih': r['dteIslemTarihi'].strftime('%d.%m.%Y') if r['dteIslemTarihi'] else '',
+    } for r in rows])
+
+
+@app.route('/api/alis-faturasi/kaydet', methods=['POST'])
+def api_alis_faturasi_kaydet():
+    d = request.json or {}
+    tarih_str = d.get('tarih', date.today().isoformat())
+    fis_no = int(d.get('fis_no') or 1)
+    satirlar = d.get('satirlar', [])
+
+    if not satirlar:
+        return jsonify({'error': 'En az bir urun gerekli'}), 400
+
+    try:
+        tarih = date.fromisoformat(tarih_str)
+    except Exception:
+        return jsonify({'error': 'Gecersiz tarih'}), 400
+
+    now = datetime.now()
+    tarih_dt = datetime(tarih.year, tarih.month, tarih.day)
+
+    # Birim bilgilerini toplu al
+    stok_ids = [int(s['stok_id']) for s in satirlar]
+    placeholders = ','.join(['?' for _ in stok_ids])
+    stok_rows = query(
+        f"SELECT nStokID, sBirimCinsi1 FROM tbStok WHERE nStokID IN ({placeholders})",
+        stok_ids
+    )
+    birim_map = {int(r['nStokID']): (r['sBirimCinsi1'] or '').strip() for r in stok_rows}
+
+    toplam_miktar = sum(float(s['miktar']) for s in satirlar)
+    toplam_tutar = sum(round(float(s['miktar']) * float(s['fiyat']), 2) for s in satirlar)
+
+    master_sql = adapt_sql(
+        "INSERT INTO tbStokFisiMaster "
+        "(sFisTipi, dteFisTarihi, nGirisCikis, lFisNo, nFirmaID, sDepo, "
+        "dteValorTarihi, bPesinmi, bListelendimi, bHizmetFaturasimi, "
+        "lToplamMiktar, lMalBedeli, lMalIskontoTutari, "
+        "nDipIskontoYuzdesi1, lDipIskontoTutari1, nDipIskontoYuzdesi2, "
+        "lDipIskontoTutari2, lDipIskontoTutari3, "
+        "lEkmaliyet1, lEkmaliyet2, lEkmaliyet3, "
+        "nKdvOrani1, lKdvMatrahi1, lKdv1, "
+        "nKdvOrani2, lKdvMatrahi2, lKdv2, "
+        "nKdvOrani3, lKdvMatrahi3, lKdv3, "
+        "nKdvOrani4, lKdvMatrahi4, lKdv4, "
+        "nKdvOrani5, lKdvMatrahi5, lKdv5, "
+        "lNetTutar, nTevkifatKdvOrani, lTevkifatKdvMatrahi, lTevkifatKdv, "
+        "sHareketTipi, bMuhasebeyeIslendimi, bFisTamamlandimi, "
+        "lTransferFisiID, sTransferDepo, bFaturayaDonustumu, "
+        "sKullaniciAdi, dteKayitTarihi, sYaziIle, "
+        "nOTVOrani1, lOTVMatrahi1, lOTV1, nOTVOrani2, lOTVMatrahi2, lOTV2, "
+        "bKilitli, bEfatura, sEfaturaTipi, sEfaturaGuid, nEfaturaDurum) "
+        "VALUES ('FA',?,1,?,1003,'D001',"
+        "?,0,0,0,"
+        "?,?,0,"
+        "0,0,0,0,0,"
+        "0,0,0,"
+        "1,?,0,"
+        "0,0,0,"
+        "0,0,0,"
+        "0,0,0,"
+        "0,0,0,"
+        "?,0,0,0,"
+        "'001',0,1,"
+        "0,'',0,"
+        "'POS',?,'', "
+        "0,?,0,0,0,0,"
+        "0,0,'','',0)"
+    )
+    master_params = [tarih_dt, fis_no, tarih_dt, toplam_miktar, toplam_tutar, toplam_tutar, toplam_tutar, now, toplam_tutar]
+
+    detay_sql = adapt_sql(
+        "INSERT INTO tbStokFisiDetayi ("
+        "nStokID, dteIslemTarihi, nFirmaID, nMusteriID, "
+        "sFisTipi, dteFisTarihi, lFisNo, nGirisCikis, sDepo, "
+        "lReyonFisNo, sStokIslem, sKasiyerRumuzu, sSaticiRumuzu, sOdemeKodu, "
+        "dteIrsaliyeTarihi, lIrsaliyeNo, "
+        "lGirisMiktar1, lGirisMiktar2, lGirisFiyat, lGirisTutar, "
+        "lCikisMiktar1, lCikisMiktar2, lCikisFiyat, lCikisTutar, "
+        "sFiyatTipi, lBrutFiyat, lBrutTutar, lMaliyetFiyat, lMaliyetTutar, "
+        "lIlaveMaliyetTutar, nIskontoYuzdesi, lIskontoTutari, "
+        "sDovizCinsi, lDovizFiyat, nReceteNo, "
+        "nKdvOrani, nHesapID, sAciklama, sHareketTipi, "
+        "bMuhasebeyeIslendimi, sKullaniciAdi, dteKayitTarihi, "
+        "sDovizCinsi1, lDovizMiktari1, lDovizKuru1, "
+        "sDovizCinsi2, lDovizMiktari2, lDovizKuru2, "
+        "nOTVOrani, nStokFisiID, sHangiUygulama, sMasrafYontemi, sBirimCinsi, lBirimMiktar, "
+        "nEkSaha1, nEkSaha2, bEkSoru1, bEkSoru2, nPrim, lPrimTutari, "
+        "sSonKullaniciAdi, dteSonUpdateTarihi) "
+        "VALUES (?,?,1003,0,'FA',?,?,1,'D001',"
+        "0,'','','','',"
+        "?,0,"
+        "?,?,?,?,"
+        "0,0,0,0,"
+        "'A',?,?,?,?,"
+        "0,0,0,"
+        "'',?,0,"
+        "1,0,'','001',"
+        "0,'POS',?,"
+        "'',0,0,"
+        "'',0,0,"
+        "0,?,'FA','',?,1,"
+        "0,0,0,0,0,0,'POS',?)"
+    )
+
+    # Tum INSERT'leri tek connection'da yap
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(master_sql, master_params)
+        cursor.execute("SELECT @@IDENTITY AS id")
+        row = cursor.fetchone()
+        if row is None or row[0] is None:
+            raise ValueError("tbStokFisiMaster INSERT sonrasi ID alinamadi")
+        yeni_fis_id = int(row[0])
+        for satir in satirlar:
+            stok_id = int(satir['stok_id'])
+            miktar = float(satir['miktar'])
+            fiyat = float(satir['fiyat'])
+            tutar = round(miktar * fiyat, 2)
+            birim = birim_map.get(stok_id, 'AD')
+            cursor.execute(detay_sql, [
+                stok_id, tarih_dt,
+                tarih_dt, fis_no,
+                tarih_dt,
+                miktar, miktar, fiyat, tutar,
+                fiyat, tutar, fiyat, tutar,
+                fiyat,
+                now,
+                yeni_fis_id, birim,
+                now,
+            ])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return jsonify({'ok': True, 'fis_id': yeni_fis_id, 'satir_sayisi': len(satirlar)})
+
 
 @app.route('/gun-sonu')
 def gun_sonu():
@@ -965,19 +1189,17 @@ def stok_durumu():
 def api_stok_durum():
     rows = query(
         "SELECT s.sAciklama, s.sKodu, s.sBirimCinsi1, "
-        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 THEN d.lCikisMiktar1 ELSE 0 END), 0) AS cikis_30, "
-        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 THEN d.lCikisTutar ELSE 0 END), 0) AS tutar_30, "
-        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND CAST(d.dteIslemTarihi AS DATE) = CAST(GETDATE() AS DATE) "
-        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) AS bugun_miktar, "
-        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND CAST(d.dteIslemTarihi AS DATE) = CAST(GETDATE() AS DATE) "
-        "    THEN d.lCikisTutar ELSE 0 END), 0) AS bugun_tutar, "
-        "ISNULL(SUM(CASE WHEN d.nGirisCikis = 3 AND d.dteIslemTarihi >= DATEADD(DAY, -7, GETDATE()) "
-        "    THEN d.lCikisMiktar1 ELSE 0 END), 0) / 7.0 AS ort_gunluk "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis=3 AND d.dteIslemTarihi>=DATEADD(DAY,-30,GETDATE()) AND d.lCikisMiktar1<100000 THEN d.lCikisMiktar1 ELSE 0 END),0) AS cikis_30, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis=3 AND d.dteIslemTarihi>=DATEADD(DAY,-30,GETDATE()) AND d.lCikisMiktar1<100000 THEN d.lCikisTutar ELSE 0 END),0) AS tutar_30, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis=3 AND CAST(d.dteIslemTarihi AS DATE)=CAST(GETDATE() AS DATE) AND d.lCikisMiktar1<100000 THEN d.lCikisMiktar1 ELSE 0 END),0) AS bugun_miktar, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis=3 AND CAST(d.dteIslemTarihi AS DATE)=CAST(GETDATE() AS DATE) AND d.lCikisMiktar1<100000 THEN d.lCikisTutar ELSE 0 END),0) AS bugun_tutar, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis=3 AND d.dteIslemTarihi>=DATEADD(DAY,-7,GETDATE()) AND d.lCikisMiktar1<100000 THEN d.lCikisMiktar1 ELSE 0 END),0)/7.0 AS ort_gunluk, "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis=1 AND d.lGirisMiktar1<100000 THEN d.lGirisMiktar1 ELSE 0 END),0) - "
+        "ISNULL(SUM(CASE WHEN d.nGirisCikis=3 AND d.lCikisMiktar1<100000 THEN d.lCikisMiktar1 ELSE 0 END),0) AS net_stok "
         "FROM tbStok s "
         "JOIN tbStokFisiDetayi d ON s.nStokID = d.nStokID "
-        "WHERE d.dteIslemTarihi >= DATEADD(DAY, -30, GETDATE()) "
-        "AND d.lCikisMiktar1 < 100000 AND d.nGirisCikis = 3 "
         "GROUP BY s.sAciklama, s.sKodu, s.sBirimCinsi1 "
+        "HAVING SUM(CASE WHEN d.nGirisCikis=3 AND d.dteIslemTarihi>=DATEADD(DAY,-30,GETDATE()) AND d.lCikisMiktar1<100000 THEN d.lCikisMiktar1 ELSE 0 END) > 0 "
         "ORDER BY cikis_30 DESC"
     )
 
@@ -988,13 +1210,14 @@ def api_stok_durum():
         bugun_m = float(r['bugun_miktar'])
         bugun_t = float(r['bugun_tutar'])
         ort = float(r['ort_gunluk'])
+        net = float(r['net_stok'])
 
         if bugun_m == 0 and ort > 0:
-            durum = 'satilmadi'   # aktif urun, bugün satılmadı
+            durum = 'satilmadi'
         elif ort > 0 and bugun_m >= ort * 1.1:
-            durum = 'hizli'       # ortalamanın üzerinde
+            durum = 'hizli'
         elif ort > 0 and bugun_m < ort * 0.4:
-            durum = 'yavas'       # ortalamanın çok altında
+            durum = 'yavas'
         else:
             durum = 'normal'
 
@@ -1007,6 +1230,7 @@ def api_stok_durum():
             'bugun_miktar': round(bugun_m, 3),
             'bugun_tutar': round(bugun_t, 2),
             'ort_gunluk': round(ort, 3),
+            'net_stok': round(net, 3),
             'durum': durum,
         })
 
@@ -1075,27 +1299,42 @@ def borclu():
 @app.route('/api/borclu')
 def api_borclu():
     rows = query(
-        "SELECT m.nMusteriID, m.sAdi, m.sSoyadi, m.sTelefon1, "
+        "SELECT m.nMusteriID, m.sAdi, m.sSoyadi, m.sGSM, "
         "COUNT(*) AS veresiye_sayisi, "
         "ISNULL(SUM(a.lNetTutar), 0) AS toplam_borc, "
-        "MAX(a.dteKayitTarihi) AS son_islem "
+        "MAX(a.dteKayitTarihi) AS son_islem, "
+        "MIN(a.dteKayitTarihi) AS ilk_borc "
         "FROM tbAlisVeris a "
         "JOIN tbMusteri m ON a.nMusteriID = m.nMusteriID "
         "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
         "WHERE RTRIM(o.sOdemeSekli) = 'V' "
         "AND a.lNetTutar < 10000000 AND a.nMusteriID > 0 "
-        "GROUP BY m.nMusteriID, m.sAdi, m.sSoyadi, m.sTelefon1 "
+        "GROUP BY m.nMusteriID, m.sAdi, m.sSoyadi, m.sGSM "
         "ORDER BY toplam_borc DESC"
     )
-    return jsonify([{
-        'id': r['nMusteriID'],
-        'adi': (r['sAdi'] or '').strip(),
-        'soyadi': (r['sSoyadi'] or '').strip(),
-        'telefon': (r['sTelefon1'] or '').strip(),
-        'veresiye_sayisi': int(r['veresiye_sayisi']),
-        'toplam_borc': float(r['toplam_borc']),
-        'son_islem': r['son_islem'].strftime('%d.%m.%Y') if r['son_islem'] else '',
-    } for r in rows])
+    now = datetime.now()
+    result = []
+    for r in rows:
+        ilk = r['ilk_borc']
+        gun = (now - ilk).days if ilk else 0
+        if gun >= 30:
+            yaslik = 'eski'
+        elif gun >= 7:
+            yaslik = 'orta'
+        else:
+            yaslik = 'yeni'
+        result.append({
+            'id': r['nMusteriID'],
+            'adi': (r['sAdi'] or '').strip(),
+            'soyadi': (r['sSoyadi'] or '').strip(),
+            'telefon': (r['sGSM'] or '').strip(),
+            'veresiye_sayisi': int(r['veresiye_sayisi']),
+            'toplam_borc': float(r['toplam_borc']),
+            'son_islem': r['son_islem'].strftime('%d.%m.%Y') if r['son_islem'] else '',
+            'gun': gun,
+            'yaslik': yaslik,
+        })
+    return jsonify(result)
 
 @app.route('/api/borclu/<int:musteri_id>/odeme', methods=['POST'])
 def api_borclu_odeme(musteri_id):
@@ -1398,26 +1637,28 @@ def excel_response(buf, dosya_adi):
 @app.route('/api/export/borclu')
 def export_borclu():
     rows = query(
-        "SELECT m.nMusteriID, m.sAdi, m.sSoyadi, m.sTelefon1, "
+        "SELECT m.nMusteriID, m.sAdi, m.sSoyadi, m.sGSM, "
         "COUNT(*) AS veresiye_sayisi, ISNULL(SUM(a.lNetTutar), 0) AS toplam_borc, "
-        "MAX(a.dteKayitTarihi) AS son_islem "
+        "MAX(a.dteKayitTarihi) AS son_islem, MIN(a.dteKayitTarihi) AS ilk_borc "
         "FROM tbAlisVeris a JOIN tbMusteri m ON a.nMusteriID = m.nMusteriID "
         "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
         "WHERE RTRIM(o.sOdemeSekli) = 'V' AND a.lNetTutar < 10000000 AND a.nMusteriID > 0 "
-        "GROUP BY m.nMusteriID, m.sAdi, m.sSoyadi, m.sTelefon1 ORDER BY toplam_borc DESC"
+        "GROUP BY m.nMusteriID, m.sAdi, m.sSoyadi, m.sGSM ORDER BY toplam_borc DESC"
     )
+    now = datetime.now()
     satirlar = [[
         (r['sAdi'] or '').strip() + ' ' + (r['sSoyadi'] or '').strip(),
-        (r['sTelefon1'] or '').strip(),
+        (r['sGSM'] or '').strip(),
         int(r['veresiye_sayisi']),
         round(float(r['toplam_borc']), 2),
         r['son_islem'].strftime('%d.%m.%Y') if r['son_islem'] else '',
+        (now - r['ilk_borc']).days if r['ilk_borc'] else 0,
     ] for r in rows]
     toplam = sum(s[3] for s in satirlar)
-    satirlar.append(['TOPLAM', '', '', toplam, ''])
+    satirlar.append(['TOPLAM', '', '', toplam, '', ''])
     buf = make_excel([{
         'baslik': 'Borclu Musteriler',
-        'sutunlar': ['Musteri', 'Telefon', 'Veresiye Islem', 'Toplam Borc (TL)', 'Son Islem'],
+        'sutunlar': ['Musteri', 'Telefon', 'Veresiye Islem', 'Toplam Borc (TL)', 'Son Islem', 'Kac Gun'],
         'satirlar': satirlar,
     }])
     tarih = date.today().strftime('%Y%m%d')
@@ -1730,6 +1971,34 @@ CREATE TABLE tbstokfisidetayi (
     dtekayittarihi TIMESTAMP, nalisverisid VARCHAR(20) DEFAULT '',
     nstokfisiid NUMERIC DEFAULT 0, nirsaliyefisiid NUMERIC DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS tbstokfisimaster (
+    nstokfisiid INTEGER PRIMARY KEY,
+    sfistipi VARCHAR(3) DEFAULT '', dtefistarihi TIMESTAMP, ngiriscikis NUMERIC DEFAULT 0,
+    lfisno NUMERIC DEFAULT 0, nfirmaid INTEGER DEFAULT 0, sdepo VARCHAR(4) DEFAULT '',
+    dtevalortarihi TIMESTAMP, bpesinmi BOOLEAN DEFAULT FALSE, blistelendimi BOOLEAN DEFAULT FALSE,
+    bhizmetfaturasimi BOOLEAN DEFAULT FALSE,
+    ltoplammiktar NUMERIC DEFAULT 0, lmalbedeli NUMERIC DEFAULT 0, lmaliskontotutari NUMERIC DEFAULT 0,
+    ndipiskontoyuzdesi1 NUMERIC DEFAULT 0, ldipiskontotutari1 NUMERIC DEFAULT 0,
+    ndipiskontoyuzdesi2 NUMERIC DEFAULT 0, ldipiskontotutari2 NUMERIC DEFAULT 0,
+    ldipiskontotutari3 NUMERIC DEFAULT 0,
+    lekmaliyet1 NUMERIC DEFAULT 0, lekmaliyet2 NUMERIC DEFAULT 0, lekmaliyet3 NUMERIC DEFAULT 0,
+    nkdvorani1 NUMERIC DEFAULT 0, lkdvmatrahi1 NUMERIC DEFAULT 0, lkdv1 NUMERIC DEFAULT 0,
+    nkdvorani2 NUMERIC DEFAULT 0, lkdvmatrahi2 NUMERIC DEFAULT 0, lkdv2 NUMERIC DEFAULT 0,
+    nkdvorani3 NUMERIC DEFAULT 0, lkdvmatrahi3 NUMERIC DEFAULT 0, lkdv3 NUMERIC DEFAULT 0,
+    nkdvorani4 NUMERIC DEFAULT 0, lkdvmatrahi4 NUMERIC DEFAULT 0, lkdv4 NUMERIC DEFAULT 0,
+    nkdvorani5 NUMERIC DEFAULT 0, lkdvmatrahi5 NUMERIC DEFAULT 0, lkdv5 NUMERIC DEFAULT 0,
+    lnettutar NUMERIC DEFAULT 0, ntevkifatkdvorani NUMERIC DEFAULT 0,
+    ltevkifatkdvmatrahi NUMERIC DEFAULT 0, ltevkifatkdv NUMERIC DEFAULT 0,
+    sharekettipi VARCHAR(20) DEFAULT '', bmuhasebeyeislendimi BOOLEAN DEFAULT FALSE,
+    bfistamamlandimi BOOLEAN DEFAULT FALSE, ltransferFisiid NUMERIC DEFAULT 0,
+    stransferdepo VARCHAR(4) DEFAULT '', bfaturayaonustumu BOOLEAN DEFAULT FALSE,
+    skullaniciadi VARCHAR(60) DEFAULT '', dtekayittarihi TIMESTAMP, syaziile VARCHAR(60) DEFAULT '',
+    notvorani1 NUMERIC DEFAULT 0, lotvmatrahi1 NUMERIC DEFAULT 0, lotv1 NUMERIC DEFAULT 0,
+    notvorani2 NUMERIC DEFAULT 0, lotvmatrahi2 NUMERIC DEFAULT 0, lotv2 NUMERIC DEFAULT 0,
+    bkilitli BOOLEAN DEFAULT FALSE, befatura BOOLEAN DEFAULT FALSE,
+    sefaturatipi VARCHAR(20) DEFAULT '', sefaturaguid VARCHAR(40) DEFAULT '',
+    nefaturadurum NUMERIC DEFAULT 0
+);
 """
 
 MIGRATE_INDEXES_SQL = """
@@ -1754,7 +2023,10 @@ DO $$ BEGIN
   BEGIN ALTER TABLE tbalisveris ADD CONSTRAINT tbalisveris_nalisverisid_key UNIQUE (nalisverisid); EXCEPTION WHEN others THEN NULL; END;
   BEGIN ALTER TABLE tbodeme ADD CONSTRAINT tbodeme_nodemeid_key UNIQUE (nodemeid); EXCEPTION WHEN others THEN NULL; END;
   BEGIN ALTER TABLE tbmusteri ADD CONSTRAINT tbmusteri_nmusteriid_key UNIQUE (nmusteriid); EXCEPTION WHEN others THEN NULL; END;
+  BEGIN ALTER TABLE tbstokfisimaster ADD CONSTRAINT tbstokfisimaster_nstokfisiid_key UNIQUE (nstokfisiid); EXCEPTION WHEN others THEN NULL; END;
 END $$;
+CREATE INDEX IF NOT EXISTS idx_sfm_tarih ON tbstokfisimaster (dtefistarihi);
+CREATE INDEX IF NOT EXISTS idx_sfm_fistipi ON tbstokfisimaster (sfistipi);
 """
 
 MIGRATE_SECRET = 'pos-migrate-2024'
@@ -1796,6 +2068,7 @@ def api_migrate_data():
         'tbstokfisidetayi': 'nislemid',
         'tbodeme': 'nodemeid',
         'tbmusteri': 'nmusteriid',
+        'tbstokfisimaster': 'nstokfisiid',
     }
     pk = pk_map.get(table_lower)
 
@@ -1852,6 +2125,7 @@ def api_sync_max_id():
         'tbOdeme': 'dtekayittarihi',
         'tbStokFisiDetayi': 'nislemid',
         'tbMusteri': 'nmusteriid',
+        'tbStokFisiMaster': 'nstokfisiid',
     }
     for table, col in tables.items():
         try:

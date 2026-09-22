@@ -59,16 +59,24 @@
 
 <!-- GECMIS MODAL -->
 <div id="gecmis-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center">
-    <div style="background:#fff;border-radius:12px;padding:24px;max-width:680px;width:95%;max-height:88vh;overflow-y:auto;position:relative">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:720px;width:95%;max-height:90vh;overflow-y:auto;position:relative">
         <button onclick="closeGecmis()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-            <h3 id="gm-baslik" style="margin:0"></h3>
-            <a id="gm-export" href="#" class="btn btn-secondary" style="padding:4px 12px;font-size:12px;margin-left:12px;white-space:nowrap">&#8595; Excel</a>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <h3 id="gm-baslik" style="margin:0"></h3>
+                <span id="gm-badge" style="display:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px"></span>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button id="gm-wa" onclick="gmOpenWA()" style="display:none;padding:4px 12px;font-size:12px;background:#25D366;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:600">WA</button>
+                <a id="gm-export" href="#" class="btn btn-secondary" style="padding:4px 12px;font-size:12px;white-space:nowrap">&#8595; Excel</a>
+            </div>
         </div>
-        <p id="gm-telefon" style="margin:0 0 16px;color:#666;font-size:13px"></p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px" id="gm-ozet"></div>
-        <div id="gm-odeme" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
-        <h4 style="margin:0 0 8px;font-size:14px;color:#666">SON 50 ALISVERIS</h4>
+        <p id="gm-telefon" style="margin:0 0 14px;color:#666;font-size:13px"></p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px" id="gm-ozet"></div>
+        <div id="gm-odeme" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <h4 style="margin:0 0 8px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:.5px">Son 12 Ay Harcama</h4>
+        <div id="gm-chart" class="chart-container" style="height:110px;margin-bottom:16px"></div>
+        <h4 style="margin:0 0 8px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:.5px">Son 50 Alisveris</h4>
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -186,41 +194,77 @@ async function kaydetMusteri() {
 });
 
 // --- GECMIS MODAL ---
+let gmAktifTelefon = '', gmAktifAd = '';
 
 async function showGecmis(id, ad, telefon) {
-    document.getElementById('gm-baslik').textContent = ad.trim() || 'Musteri #' + id;
+    const adTemiz = ad.trim() || 'Musteri #' + id;
+    gmAktifAd = adTemiz;
+    gmAktifTelefon = telefon || '';
+
+    document.getElementById('gm-baslik').textContent = adTemiz;
+    document.getElementById('gm-badge').style.display = 'none';
     document.getElementById('gm-export').href = '/api/export/musteri/' + id;
     document.getElementById('gm-telefon').textContent = telefon || 'Telefon yok';
     document.getElementById('gm-ozet').innerHTML = '<div style="color:#999;padding:8px">Yukleniyor...</div>';
     document.getElementById('gm-satislar').innerHTML = '';
+    document.getElementById('gm-chart').innerHTML = '';
+    document.getElementById('gm-odeme').innerHTML = '';
+    const waBtn = document.getElementById('gm-wa');
+    waBtn.style.display = telefon ? 'block' : 'none';
     document.getElementById('gecmis-modal').style.display = 'flex';
 
-    const data = await fetch('/api/musteri/' + id + '/gecmis').then(r => r.json());
+    const [data, aylik] = await Promise.all([
+        fetch('/api/musteri/' + id + '/gecmis').then(r => r.json()),
+        fetch('/api/musteri/' + id + '/aylik').then(r => r.json()),
+    ]);
     const o = data.ozet;
+
+    // Badge
+    const badge = document.getElementById('gm-badge');
+    if (o.islem_adedi >= 20) {
+        badge.textContent = 'Sadik Musteri';
+        badge.style.cssText = 'display:inline;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#e8f5e9;color:#198754';
+    } else if (o.islem_adedi >= 5) {
+        badge.textContent = 'Duzenli';
+        badge.style.cssText = 'display:inline;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#e3f2fd;color:#0d6efd';
+    } else if (o.islem_adedi > 0) {
+        badge.textContent = 'Yeni';
+        badge.style.cssText = 'display:inline;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#f8f9fa;color:#666';
+    }
+
+    // Ozet kartlar
+    const veresiyeKart = o.veresiye_borc > 0
+        ? `<div class="stat-card" style="padding:10px;border-left:3px solid #dc3545">
+            <div style="font-size:16px;font-weight:700;color:#dc3545">${formatMoney(o.veresiye_borc)}</div>
+            <div style="font-size:11px;color:#666">Acik Veresiye</div>
+            <div style="font-size:11px;color:#999">${o.veresiye_bekleyen} islem</div>
+           </div>` : '';
 
     document.getElementById('gm-ozet').innerHTML = `
         <div class="stat-card" style="padding:10px">
-            <div style="font-size:18px;font-weight:700;color:#0d6efd">${formatMoney(o.toplam_harcama)}</div>
+            <div style="font-size:17px;font-weight:700;color:#0d6efd">${formatMoney(o.toplam_harcama)}</div>
             <div style="font-size:11px;color:#666">Toplam Harcama</div>
         </div>
         <div class="stat-card" style="padding:10px">
-            <div style="font-size:18px;font-weight:700">${o.islem_adedi}</div>
+            <div style="font-size:17px;font-weight:700">${o.islem_adedi}</div>
             <div style="font-size:11px;color:#666">Alisveris</div>
         </div>
         <div class="stat-card" style="padding:10px">
-            <div style="font-size:18px;font-weight:700">${formatMoney(o.ort_fis)}</div>
+            <div style="font-size:17px;font-weight:700">${formatMoney(o.ort_fis)}</div>
             <div style="font-size:11px;color:#666">Ort. Fis</div>
         </div>
         <div class="stat-card" style="padding:10px">
-            <div style="font-size:14px;font-weight:600">${o.ilk}</div>
+            <div style="font-size:13px;font-weight:600">${o.ilk || '-'}</div>
             <div style="font-size:11px;color:#666">Ilk Alisveris</div>
         </div>
         <div class="stat-card" style="padding:10px">
-            <div style="font-size:14px;font-weight:600">${o.son}</div>
+            <div style="font-size:13px;font-weight:600">${o.son || '-'}</div>
             <div style="font-size:11px;color:#666">Son Alisveris</div>
         </div>
+        ${veresiyeKart}
     `;
 
+    // Odeme dagilimi
     const odemeAd = { N: 'Nakit', K: 'Kart', V: 'Veresiye', T: 'Odendi' };
     const odemeRenk = { N: '#198754', K: '#0d6efd', V: '#dc3545', T: '#6c757d' };
     document.getElementById('gm-odeme').innerHTML = Object.entries(data.odeme)
@@ -232,6 +276,25 @@ async function showGecmis(id, ad, telefon) {
                 <span style="color:#999">(${v.islem} islem)</span>
             </div>`).join('');
 
+    // Aylik bar grafik
+    const chart = document.getElementById('gm-chart');
+    if (aylik.length) {
+        const maxC = Math.max(...aylik.map(a => a.ciro), 1);
+        chart.innerHTML = '';
+        aylik.forEach(a => {
+            const pct = (a.ciro / maxC) * 90;
+            const bar = document.createElement('div');
+            bar.className = 'chart-bar';
+            bar.style.height = Math.max(pct, a.ciro > 0 ? 6 : 2) + 'px';
+            bar.title = `${a.etiket}: ${formatMoney(a.ciro)} (${a.islem} islem)`;
+            bar.innerHTML = `<span class="bar-value">${formatShort(a.ciro)}</span><span class="bar-label">${a.etiket}</span>`;
+            chart.appendChild(bar);
+        });
+    } else {
+        chart.innerHTML = '<div style="text-align:center;padding:30px;color:#999">Veri yok</div>';
+    }
+
+    // Satis listesi
     const sekRenk = { N: '#198754', K: '#0d6efd', V: '#dc3545', T: '#6c757d' };
     document.getElementById('gm-satislar').innerHTML = data.satislar.map(s => `
         <tr>
@@ -243,6 +306,14 @@ async function showGecmis(id, ad, telefon) {
             <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')">Detay</button></td>
         </tr>
     `).join('') || '<tr><td colspan="6" style="text-align:center;color:#999">Alisveris bulunamadi</td></tr>';
+}
+
+function gmOpenWA() {
+    let tel = gmAktifTelefon.replace(/[\s\-\(\)\+]/g, '');
+    if (tel.startsWith('0')) tel = '90' + tel.slice(1);
+    else if (!tel.startsWith('90')) tel = '90' + tel;
+    const msg = `Sayin ${gmAktifAd}, iyi gunler dileriz. Dincer Tavukculuk`;
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function closeGecmis() {

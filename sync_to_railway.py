@@ -133,8 +133,8 @@ def get_max_ids():
         r = requests.post(f"{API_URL}/api/sync/max-id", json={'secret': SECRET}, timeout=30)
         r.raise_for_status()
         data = r.json()
-        # tbStokFisiDetayi ve tbMusteri integer olmali
-        for key in ('tbStokFisiDetayi', 'tbMusteri'):
+        # tbStokFisiDetayi, tbMusteri ve tbStokFisiMaster integer olmali
+        for key in ('tbStokFisiDetayi', 'tbMusteri', 'tbStokFisiMaster'):
             if key in data and data[key] is not None:
                 try:
                     data[key] = int(float(data[key]))
@@ -252,6 +252,29 @@ def do_sync():
     total += sync_table(conn, 'tbMusteri', 'nMusteriID', max_musteri,
         "SELECT nMusteriID, sAdi, sSoyadi, sGSM AS sTelefon1, sEvIl AS sIl "
         "FROM tbMusteri WHERE nMusteriID > ?"
+    )
+
+    # Stok fis master (alis/satis fatura basliklari)
+    max_sfm = max_ids.get('tbStokFisiMaster', 0) or 0
+    total += sync_table(conn, 'tbStokFisiMaster', 'nStokFisiID', max_sfm,
+        "SELECT nStokFisiID, sFisTipi, dteFisTarihi, nGirisCikis, lFisNo, nFirmaID, sDepo, "
+        "dteValorTarihi, bPesinmi, bListelendimi, bHizmetFaturasimi, "
+        "lToplamMiktar, lMalBedeli, lMalIskontoTutari, "
+        "nDipIskontoYuzdesi1, lDipIskontoTutari1, nDipIskontoYuzdesi2, "
+        "lDipIskontoTutari2, lDipIskontoTutari3, "
+        "lEkmaliyet1, lEkmaliyet2, lEkmaliyet3, "
+        "nKdvOrani1, lKdvMatrahi1, lKdv1, "
+        "nKdvOrani2, lKdvMatrahi2, lKdv2, "
+        "nKdvOrani3, lKdvMatrahi3, lKdv3, "
+        "nKdvOrani4, lKdvMatrahi4, lKdv4, "
+        "nKdvOrani5, lKdvMatrahi5, lKdv5, "
+        "lNetTutar, nTevkifatKdvOrani, lTevkifatKdvMatrahi, lTevkifatKdv, "
+        "sHareketTipi, bMuhasebeyeIslendimi, bFisTamamlandimi, "
+        "lTransferFisiID, sTransferDepo, bFaturayaDonustumu, "
+        "sKullaniciAdi, dteKayitTarihi, sYaziIle, "
+        "nOTVOrani1, lOTVMatrahi1, lOTV1, nOTVOrani2, lOTVMatrahi2, lOTV2, "
+        "bKilitli, bEfatura, sEfaturaTipi, sEfaturaGuid, nEfaturaDurum "
+        "FROM tbStokFisiMaster WHERE nStokFisiID > ?"
     )
 
     if total > 0:

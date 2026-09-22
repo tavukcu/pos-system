@@ -9,6 +9,12 @@
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
     <input type="text" id="search" placeholder="Ad, soyad veya telefon..." oninput="filterTable()" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #dee2e6;border-radius:8px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-secondary yaslik-btn active" data-yaslik="tumu" onclick="setYaslik('tumu')">Tumu</button>
+        <button class="btn btn-secondary yaslik-btn" data-yaslik="yeni" onclick="setYaslik('yeni')" style="color:#198754;border-color:#198754">Yeni &lt;7g</button>
+        <button class="btn btn-secondary yaslik-btn" data-yaslik="orta" onclick="setYaslik('orta')" style="color:#fd7e14;border-color:#fd7e14">Orta 7-30g</button>
+        <button class="btn btn-secondary yaslik-btn" data-yaslik="eski" onclick="setYaslik('eski')" style="color:#dc3545;border-color:#dc3545">Eski 30+g</button>
+    </div>
     <a id="export-btn" href="/api/export/borclu" class="btn btn-secondary" style="white-space:nowrap">&#8595; Excel</a>
 </div>
 
@@ -21,6 +27,7 @@
                     <th>Telefon</th>
                     <th style="text-align:center">Islem</th>
                     <th style="text-align:right">Toplam Borc</th>
+                    <th style="text-align:center">Kac Gun</th>
                     <th>Son Islem</th>
                     <th></th>
                 </tr>
@@ -30,7 +37,7 @@
                 <tr>
                     <th colspan="3" style="text-align:right">GENEL TOPLAM</th>
                     <th id="genel-toplam" style="text-align:right"></th>
-                    <th colspan="2"></th>
+                    <th colspan="3"></th>
                 </tr>
             </tfoot>
         </table>
@@ -75,8 +82,12 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+.yaslik-btn.active { font-weight: 700; box-shadow: 0 0 0 2px currentColor inset; }
+</style>
 <script>
 let allData = [];
+let aktifYaslik = 'tumu';
 
 document.addEventListener('DOMContentLoaded', loadBorclu);
 
@@ -91,30 +102,42 @@ function renderOzet(data) {
     const toplamBorc = data.reduce((s, m) => s + m.toplam_borc, 0);
     const kisiSayisi = data.length;
     const topIslem = data.reduce((s, m) => s + m.veresiye_sayisi, 0);
+    const eskiSayisi = data.filter(m => m.yaslik === 'eski').length;
+    const eskiBorc = data.filter(m => m.yaslik === 'eski').reduce((s, m) => s + m.toplam_borc, 0);
 
     document.getElementById('ozet-cards').innerHTML = `
         <div class="stat-card"><div class="stat-value" style="color:#dc3545">${formatMoney(toplamBorc)}</div><div class="stat-label">Toplam Borc</div></div>
         <div class="stat-card"><div class="stat-value">${kisiSayisi}</div><div class="stat-label">Borclu Musteri</div></div>
         <div class="stat-card"><div class="stat-value">${topIslem}</div><div class="stat-label">Veresiye Islem</div></div>
+        <div class="stat-card" style="border-left:4px solid #dc3545;cursor:pointer" onclick="setYaslik('eski')">
+            <div class="stat-value" style="color:#dc3545">${eskiSayisi}</div>
+            <div class="stat-label">30+ Gun Bekleyen</div>
+            <div style="font-size:12px;color:#999;margin-top:2px">${formatMoney(eskiBorc)}</div>
+        </div>
     `;
 }
 
 function renderTable(data) {
     const tbody = document.getElementById('borclu-tbody');
     if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:#999">Borclu musteri bulunamadi</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#999">Borclu musteri bulunamadi</td></tr>';
         document.getElementById('genel-toplam').textContent = '';
         return;
     }
     let genel = 0;
     tbody.innerHTML = data.map(m => {
         genel += m.toplam_borc;
-        const renk = m.toplam_borc > 1000 ? '#dc3545' : m.toplam_borc > 200 ? '#fd7e14' : '#333';
+        const borcRenk = m.toplam_borc > 1000 ? '#dc3545' : m.toplam_borc > 200 ? '#fd7e14' : '#333';
+        const gunRenk = m.yaslik === 'eski' ? '#dc3545' : m.yaslik === 'orta' ? '#fd7e14' : '#198754';
+        const gunBadge = m.gun > 0
+            ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;background:${m.yaslik==='eski'?'#fde8e8':m.yaslik==='orta'?'#fff3e0':'#e8f5e9'};color:${gunRenk}">${m.gun}g</span>`
+            : '<span style="color:#999;font-size:12px">-</span>';
         return `<tr>
             <td style="cursor:pointer" onclick="showDetay(${m.id}, '${escHtml(m.adi + ' ' + m.soyadi)}', '${escHtml(m.telefon)}', ${m.toplam_borc})"><strong>${escHtml(m.adi)} ${escHtml(m.soyadi)}</strong></td>
             <td>${escHtml(m.telefon)}</td>
             <td style="text-align:center">${m.veresiye_sayisi}</td>
-            <td style="text-align:right;font-weight:700;color:${renk}">${formatMoney(m.toplam_borc)}</td>
+            <td style="text-align:right;font-weight:700;color:${borcRenk}">${formatMoney(m.toplam_borc)}</td>
+            <td style="text-align:center">${gunBadge}</td>
             <td>${m.son_islem}</td>
             <td>
                 <div style="display:flex;gap:4px;flex-wrap:wrap">
@@ -127,13 +150,23 @@ function renderTable(data) {
     document.getElementById('genel-toplam').innerHTML = `<strong style="color:#dc3545">${formatMoney(genel)}</strong>`;
 }
 
+function setYaslik(yaslik) {
+    aktifYaslik = yaslik;
+    document.querySelectorAll('.yaslik-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.yaslik === yaslik);
+    });
+    filterTable();
+}
+
 function filterTable() {
     const q = document.getElementById('search').value.toLowerCase();
-    if (!q) { renderTable(allData); return; }
-    renderTable(allData.filter(m =>
+    let data = allData;
+    if (aktifYaslik !== 'tumu') data = data.filter(m => m.yaslik === aktifYaslik);
+    if (q) data = data.filter(m =>
         (m.adi + ' ' + m.soyadi).toLowerCase().includes(q) ||
         m.telefon.includes(q)
-    ));
+    );
+    renderTable(data);
 }
 
 async function showDetay(id, ad, telefon, toplam) {
