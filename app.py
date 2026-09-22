@@ -1045,7 +1045,7 @@ def api_rapor_kasa():
         tutar = float(r['toplam'])
         kasiyerler[ad]['islem'] += int(r['islem_adedi'])
         if s == 'N': kasiyerler[ad]['nakit'] += tutar
-        elif s == 'K': kasiyerler[ad]['kart'] += tutar
+        elif s in ('K', '1'): kasiyerler[ad]['kart'] += tutar
         elif s in ('V', 'T'): kasiyerler[ad]['veresiye'] += tutar
         else: kasiyerler[ad]['diger'] += tutar
 
@@ -1712,8 +1712,8 @@ def export_kasa():
         "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? AND a.lNetTutar < 10000000 "
         "GROUP BY RTRIM(o.sOdemeSekli)", [tarih]
     )
-    sekil_ad = {'N': 'Nakit', 'K': 'Kredi Karti', 'V': 'Veresiye', 'T': 'Tahsilat',
-                '1': 'Nakit(1)', '2': 'Kart(2)', '3': 'Cek(3)'}
+    sekil_ad = {'N': 'Nakit', 'K': 'Kredi Karti', '1': 'Kredi Karti',
+                'V': 'Veresiye', 'T': 'Tahsilat', '2': 'Kart(2)', '3': 'Cek(3)'}
     ozet_satirlar = [[sekil_ad.get((r['sekil'] or '').strip(), (r['sekil'] or '-').strip()),
                       int(r['islem_adedi']), round(float(r['toplam']), 2)] for r in ozet_rows]
     # Kasiyere gore
@@ -1811,7 +1811,7 @@ def export_gun_sonu():
         "AND a.lNetTutar < 10000000 "
         "GROUP BY RTRIM(o.sOdemeSekli)", [tarih]
     )
-    sekil_ad = {'N': 'Nakit', 'K': 'Kart', 'V': 'Veresiye', 'T': 'Odendi'}
+    sekil_ad = {'N': 'Nakit', 'K': 'Kredi Karti', '1': 'Kredi Karti', 'V': 'Veresiye', 'T': 'Odendi'}
     ozet_satirlar = [[sekil_ad.get((r['sekil'] or '').strip(), r['sekil']),
                       int(r['islem_adedi']), round(float(r['toplam']), 2)]
                      for r in ozet_rows]
@@ -1837,7 +1837,7 @@ def export_gun_sonu():
             kasiyerler[ad] = {'ad': ad, 'nakit': 0, 'kart': 0, 'veresiye': 0, 'islem': 0}
         kasiyerler[ad]['islem'] += int(r['islem_adedi'])
         if s == 'N': kasiyerler[ad]['nakit'] += float(r['toplam'])
-        elif s == 'K': kasiyerler[ad]['kart'] += float(r['toplam'])
+        elif s in ('K', '1'): kasiyerler[ad]['kart'] += float(r['toplam'])
         elif s in ('V', 'T'): kasiyerler[ad]['veresiye'] += float(r['toplam'])
     for k in kasiyerler.values():
         k['toplam'] = k['nakit'] + k['kart'] + k['veresiye']
@@ -1890,7 +1890,7 @@ def export_musteri(musteri_id):
         "WHERE a.nMusteriID = ? AND a.lNetTutar < 10000000 "
         "ORDER BY a.dteKayitTarihi DESC", [musteri_id]
     )
-    sekil_ad = {'N': 'Nakit', 'K': 'Kart', 'V': 'Veresiye', 'T': 'Odendi'}
+    sekil_ad = {'N': 'Nakit', 'K': 'Kredi Karti', '1': 'Kredi Karti', 'V': 'Veresiye', 'T': 'Odendi'}
     satirlar = [[
         a['dteFaturaTarihi'].strftime('%d.%m.%Y') if a['dteFaturaTarihi'] else '',
         a['dteKayitTarihi'].strftime('%H:%M') if a['dteKayitTarihi'] else '',

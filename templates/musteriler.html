@@ -265,8 +265,8 @@ async function showGecmis(id, ad, telefon) {
     `;
 
     // Odeme dagilimi
-    const odemeAd = { N: 'Nakit', K: 'Kart', V: 'Veresiye', T: 'Odendi' };
-    const odemeRenk = { N: '#198754', K: '#0d6efd', V: '#dc3545', T: '#6c757d' };
+    const odemeAd = { N: 'Nakit', K: 'Kredi Karti', '1': 'Kredi Karti', V: 'Veresiye', T: 'Odendi' };
+    const odemeRenk = { N: '#198754', K: '#0d6efd', '1': '#0d6efd', V: '#dc3545', T: '#6c757d' };
     document.getElementById('gm-odeme').innerHTML = Object.entries(data.odeme)
         .filter(([k]) => k && k !== 'T')
         .map(([k, v]) => `
@@ -295,7 +295,7 @@ async function showGecmis(id, ad, telefon) {
     }
 
     // Satis listesi
-    const sekRenk = { N: '#198754', K: '#0d6efd', V: '#dc3545', T: '#6c757d' };
+    const sekRenk = { N: '#198754', K: '#0d6efd', '1': '#0d6efd', V: '#dc3545', T: '#6c757d' };
     document.getElementById('gm-satislar').innerHTML = data.satislar.map(s => `
         <tr>
             <td>${s.tarih}</td>
