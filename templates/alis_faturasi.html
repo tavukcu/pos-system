@@ -79,7 +79,7 @@
 <!-- SAG: SON FATURALAR -->
 <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-        <h2 style="margin:0">Son Alis Faturalari</h2>
+        <h2 style="margin:0">Son Alis Faturalari <span id="fatura-sayisi" style="font-size:13px;font-weight:400;color:#666"></span></h2>
         <select id="filtre-tedarikci" onchange="yukleListe()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;min-width:160px">
             <option value="">Tum Tedarikciler</option>
         </select>
@@ -359,6 +359,7 @@ async function yukleListe() {
     const data = await fetch(url).then(r => r.json());
     const genelToplam = data.reduce((s, f) => s + (f.toplam || 0), 0);
     document.getElementById('liste-toplam').textContent = formatMoney(genelToplam);
+    document.getElementById('fatura-sayisi').textContent = data.length ? `(${data.length} fatura)` : '';
     document.getElementById('liste-tbody').innerHTML = data.length
         ? data.map(f => `
             <tr>
