@@ -797,8 +797,10 @@ def api_alis_faturasi_liste():
         filtres.append("m.dteFisTarihi >= ?")
         params.append(bas)
     if bit:
-        filtres.append("m.dteFisTarihi < DATEADD(DAY, 1, ?)")
-        params.append(bit)
+        from datetime import date, timedelta
+        bit_dt = date.fromisoformat(bit) + timedelta(days=1)
+        filtres.append("m.dteFisTarihi < ?")
+        params.append(bit_dt.isoformat())
     filtre = ("AND " + " AND ".join(filtres)) if filtres else ""
     rows = query(
         "SELECT TOP 200 m.nStokFisiID, m.dteFisTarihi AS tarih, "
