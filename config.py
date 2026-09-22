@@ -34,6 +34,10 @@ def adapt_sql(sql):
     sql = re.sub(r'\bYEAR\(([^)]+)\)', r'EXTRACT(YEAR FROM \1)::int', sql, flags=re.IGNORECASE)
     # DATEPART(HOUR, x) -> EXTRACT(HOUR FROM x)
     sql = re.sub(r'DATEPART\(\s*HOUR\s*,\s*([^)]+)\)', r'EXTRACT(HOUR FROM \1)::int', sql, flags=re.IGNORECASE)
+    # tbMusteri kolon adi farkliliklari (SQL Server -> PostgreSQL)
+    sql = re.sub(r'\bsGSM\b', 'stelefon1', sql)
+    sql = re.sub(r'\bsIsIl\b', 'sil', sql)
+    sql = re.sub(r'\bsEvIl\b', 'sil', sql)
     # ? -> %s
     sql = sql.replace('?', '%s')
     return sql
