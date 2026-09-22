@@ -786,10 +786,22 @@ def api_alis_faturasi_tedarikciler():
 @app.route('/api/alis-faturasi/liste')
 def api_alis_faturasi_liste():
     firma_id = request.args.get('firma_id', type=int)
-    filtre = "AND m.nFirmaID = ?" if firma_id else ""
-    params = [firma_id] if firma_id else []
+    bas = request.args.get('bas', '')
+    bit = request.args.get('bit', '')
+    filtres = []
+    params = []
+    if firma_id:
+        filtres.append("m.nFirmaID = ?")
+        params.append(firma_id)
+    if bas:
+        filtres.append("m.dteFisTarihi >= ?")
+        params.append(bas)
+    if bit:
+        filtres.append("m.dteFisTarihi < DATEADD(DAY, 1, ?)")
+        params.append(bit)
+    filtre = ("AND " + " AND ".join(filtres)) if filtres else ""
     rows = query(
-        "SELECT TOP 100 m.nStokFisiID, m.dteFisTarihi AS tarih, "
+        "SELECT TOP 200 m.nStokFisiID, m.dteFisTarihi AS tarih, "
         "m.lFisNo AS fis_no, m.lNetTutar AS toplam, "
         "ISNULL(f.sAciklama, '') AS tedarikci, "
         "ISNULL(d.satir_sayisi, 0) AS satir_sayisi "

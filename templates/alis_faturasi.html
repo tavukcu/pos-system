@@ -78,11 +78,17 @@
 
 <!-- SAG: SON FATURALAR -->
 <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">Son Alis Faturalari</h2>
         <select id="filtre-tedarikci" onchange="yukleListe()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;min-width:160px">
             <option value="">Tum Tedarikciler</option>
         </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <input type="date" id="filtre-bas" onchange="yukleListe()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+        <span style="color:#999;font-size:13px">—</span>
+        <input type="date" id="filtre-bit" onchange="yukleListe()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+        <button onclick="filtreTemizle()" style="padding:5px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:12px;background:#f8f9fa;cursor:pointer;color:#666">Temizle</button>
     </div>
     <div class="table-wrapper">
         <table>
@@ -326,10 +332,23 @@ async function kaydetFatura() {
     }
 }
 
+function filtreTemizle() {
+    document.getElementById('filtre-tedarikci').value = '';
+    document.getElementById('filtre-bas').value = '';
+    document.getElementById('filtre-bit').value = '';
+    yukleListe();
+}
+
 // --- SON FATURALAR LiSTESi ---
 async function yukleListe() {
     const firmaId = document.getElementById('filtre-tedarikci').value;
-    const url = '/api/alis-faturasi/liste' + (firmaId ? '?firma_id=' + firmaId : '');
+    const bas = document.getElementById('filtre-bas').value;
+    const bit = document.getElementById('filtre-bit').value;
+    const params = new URLSearchParams();
+    if (firmaId) params.append('firma_id', firmaId);
+    if (bas) params.append('bas', bas);
+    if (bit) params.append('bit', bit);
+    const url = '/api/alis-faturasi/liste' + (params.toString() ? '?' + params.toString() : '');
     const data = await fetch(url).then(r => r.json());
     document.getElementById('liste-tbody').innerHTML = data.length
         ? data.map(f => `
