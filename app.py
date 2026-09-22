@@ -2055,7 +2055,6 @@ DO $$ BEGIN
   BEGIN ALTER TABLE tbodeme ADD CONSTRAINT tbodeme_nodemeid_key UNIQUE (nodemeid); EXCEPTION WHEN others THEN NULL; END;
   BEGIN ALTER TABLE tbmusteri ADD CONSTRAINT tbmusteri_nmusteriid_key UNIQUE (nmusteriid); EXCEPTION WHEN others THEN NULL; END;
   BEGIN ALTER TABLE tbstokfisimaster ADD CONSTRAINT tbstokfisimaster_nstokfisiid_key UNIQUE (nstokfisiid); EXCEPTION WHEN others THEN NULL; END;
-  BEGIN ALTER TABLE tbstokfisimaster RENAME COLUMN bfaturayaonustumu TO bfaturayadonustumu; EXCEPTION WHEN others THEN NULL; END;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_sfm_tarih ON tbstokfisimaster (dtefistarihi);
 CREATE INDEX IF NOT EXISTS idx_sfm_fistipi ON tbstokfisimaster (sfistipi);
@@ -2139,6 +2138,7 @@ def api_migrate_index():
         return jsonify({'error': 'Unauthorized'}), 401
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS tbstokfisimaster")
     cursor.execute(CREATE_TBSTOKFISIMASTER_SQL)
     cursor.execute(MIGRATE_INDEXES_SQL)
     conn.commit()
