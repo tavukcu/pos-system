@@ -84,6 +84,7 @@
             <thead>
                 <tr>
                     <th>Tarih</th>
+                    <th>Tedarikci</th>
                     <th style="text-align:center">Urun</th>
                     <th style="text-align:right">Toplam</th>
                     <th></th>
@@ -315,11 +316,12 @@ async function yukleListe() {
         ? data.map(f => `
             <tr>
                 <td><strong>${f.tarih}</strong></td>
+                <td style="font-size:13px">${esc(f.tedarikci)}</td>
                 <td style="text-align:center;color:#666">${f.satir}</td>
                 <td style="text-align:right;font-weight:600">${formatMoney(f.toplam)}</td>
-                <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showDetay(${f.fis_id},'${f.tarih}')">Detay</button></td>
+                <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showDetay(${f.fis_id},'${f.tarih} - ${esc(f.tedarikci)}')">Detay</button></td>
             </tr>`).join('')
-        : '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">Kayit yok</td></tr>';
+        : '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Kayit yok</td></tr>';
 }
 
 // --- DETAY MODAL ---

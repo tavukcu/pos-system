@@ -134,7 +134,7 @@ def get_max_ids():
         r.raise_for_status()
         data = r.json()
         # tbStokFisiDetayi, tbMusteri ve tbStokFisiMaster integer olmali
-        for key in ('tbStokFisiDetayi', 'tbMusteri', 'tbStokFisiMaster'):
+        for key in ('tbStokFisiDetayi', 'tbMusteri', 'tbStokFisiMaster', 'tbFirma'):
             if key in data and data[key] is not None:
                 try:
                     data[key] = int(float(data[key]))
@@ -252,6 +252,12 @@ def do_sync():
     total += sync_table(conn, 'tbMusteri', 'nMusteriID', max_musteri,
         "SELECT nMusteriID, sAdi, sSoyadi, sGSM AS sTelefon1, sEvIl AS sIl "
         "FROM tbMusteri WHERE nMusteriID > ?"
+    )
+
+    # Firmalar (tedarikci referans tablosu)
+    max_firma = max_ids.get('tbFirma', 0) or 0
+    total += sync_table(conn, 'tbFirma', 'nFirmaID', max_firma,
+        "SELECT nFirmaID, sKodu, sAciklama FROM tbFirma WHERE nFirmaID > ?"
     )
 
     # Stok fis master (alis/satis fatura basliklari)

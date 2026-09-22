@@ -773,8 +773,10 @@ def api_alis_faturasi_liste():
     rows = query(
         "SELECT TOP 100 m.nStokFisiID, m.dteFisTarihi AS tarih, "
         "m.lFisNo AS fis_no, m.lNetTutar AS toplam, "
+        "ISNULL(f.sAciklama, '') AS tedarikci, "
         "ISNULL(d.satir_sayisi, 0) AS satir_sayisi "
         "FROM tbStokFisiMaster m "
+        "LEFT JOIN tbFirma f ON f.nFirmaID = m.nFirmaID "
         "LEFT JOIN ("
         "  SELECT nStokFisiID, COUNT(*) AS satir_sayisi "
         "  FROM tbStokFisiDetayi WHERE nGirisCikis = 1 GROUP BY nStokFisiID"
@@ -788,6 +790,7 @@ def api_alis_faturasi_liste():
         'satir': int(r['satir_sayisi']),
         'toplam': float(r['toplam']),
         'fis_no': int(r['fis_no'] or 0),
+        'tedarikci': (r.get('tedarikci') or '').strip(),
     } for r in rows])
 
 
@@ -2002,6 +2005,14 @@ CREATE TABLE IF NOT EXISTS tbstokfisimaster (
 );
 """
 
+CREATE_TBFIRMA_SQL = """
+CREATE TABLE IF NOT EXISTS tbfirma (
+    nfirmaid INTEGER PRIMARY KEY,
+    skodu VARCHAR(20) DEFAULT '',
+    saciklama VARCHAR(60) DEFAULT ''
+)
+"""
+
 CREATE_TBSTOKFISIMASTER_SQL = """
 CREATE TABLE IF NOT EXISTS tbstokfisimaster (
     nstokfisiid INTEGER PRIMARY KEY,
@@ -2101,6 +2112,7 @@ def api_migrate_data():
         'tbodeme': 'nodemeid',
         'tbmusteri': 'nmusteriid',
         'tbstokfisimaster': 'nstokfisiid',
+        'tbfirma': 'nfirmaid',
     }
     pk = pk_map.get(table_lower)
 
@@ -2139,6 +2151,7 @@ def api_migrate_index():
         return jsonify({'error': 'Unauthorized'}), 401
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute(CREATE_TBFIRMA_SQL)
     cursor.execute("DROP TABLE IF EXISTS tbstokfisimaster")
     cursor.execute(CREATE_TBSTOKFISIMASTER_SQL)
     cursor.execute(MIGRATE_INDEXES_SQL)
@@ -2160,6 +2173,7 @@ def api_sync_max_id():
         'tbStokFisiDetayi': 'nislemid',
         'tbMusteri': 'nmusteriid',
         'tbStokFisiMaster': 'nstokfisiid',
+        'tbFirma': 'nfirmaid',
     }
     for table, col in tables.items():
         try:
