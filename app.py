@@ -771,15 +771,16 @@ def alis_faturasi():
 @app.route('/api/alis-faturasi/liste')
 def api_alis_faturasi_liste():
     rows = query(
-        "SELECT TOP 50 nStokFisiID, "
-        "MIN(dteIslemTarihi) AS tarih, "
-        "COUNT(*) AS satir_sayisi, "
-        "ISNULL(SUM(lGirisTutar), 0) AS toplam, "
-        "MIN(lFisNo) AS fis_no "
-        "FROM tbStokFisiDetayi "
-        "WHERE nGirisCikis = 1 "
-        "GROUP BY nStokFisiID "
-        "ORDER BY MIN(dteIslemTarihi) DESC, nStokFisiID DESC"
+        "SELECT TOP 100 m.nStokFisiID, m.dteFisTarihi AS tarih, "
+        "m.lFisNo AS fis_no, m.lNetTutar AS toplam, "
+        "ISNULL(d.satir_sayisi, 0) AS satir_sayisi "
+        "FROM tbStokFisiMaster m "
+        "LEFT JOIN ("
+        "  SELECT nStokFisiID, COUNT(*) AS satir_sayisi "
+        "  FROM tbStokFisiDetayi WHERE nGirisCikis = 1 GROUP BY nStokFisiID"
+        ") d ON d.nStokFisiID = m.nStokFisiID "
+        "WHERE m.sFisTipi = 'FA' AND m.nGirisCikis = 1 "
+        "ORDER BY m.dteFisTarihi DESC, m.nStokFisiID DESC"
     )
     return jsonify([{
         'fis_id': int(r['nStokFisiID']),
