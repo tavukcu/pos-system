@@ -67,7 +67,9 @@ if DB_MODE == 'postgres':
         'bVadeFarksizOdemeAlirmi','nMaxIskontoYuzdesi','sSifresi',
         'nTeminSuresi','lAsgariMiktar','lAzamiMiktar',
         'sKarsiStokKodu','sKarsiStokAciklama','sBirimCinsi','lBirimMiktar',
-        'dteFiyatTespitTarihi','nIslemID']:
+        'dteFiyatTespitTarihi','nIslemID',
+        'nStokFisiID','dteFisTarihi','lFisNo','lMalIskontoTutari',
+        'nStokFisiDetayiID','bFisTamamlandimi','lTransferFisiID','sTransferDepo']:
         _COL_MAP[_t.lower()] = _t
 
     def _restore_keys(row):
