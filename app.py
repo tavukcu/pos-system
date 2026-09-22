@@ -142,6 +142,40 @@ def raporlar():
 def satis_raporu():
     return render_template('satis_raporu.html')
 
+@app.route('/musteri-raporu')
+def musteri_raporu():
+    return render_template('musteri_raporu.html')
+
+@app.route('/api/rapor/musteri-listesi')
+def api_rapor_musteri_listesi():
+    bas = request.args.get('bas', date.today().isoformat())
+    bit = request.args.get('bit', date.today().isoformat())
+    rows = query(
+        "SELECT TOP 200 m.nMusteriID, m.sAdi, m.sSoyadi, m.sGSM, "
+        "COUNT(*) AS islem_adedi, "
+        "ISNULL(SUM(a.lNetTutar), 0) AS toplam_tutar, "
+        "ISNULL(AVG(a.lNetTutar), 0) AS ort_fis, "
+        "MAX(a.dteFaturaTarihi) AS son_alisveris "
+        "FROM tbAlisVeris a "
+        "JOIN tbMusteri m ON a.nMusteriID = m.nMusteriID "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) >= ? "
+        "AND CAST(a.dteFaturaTarihi AS DATE) <= ? "
+        "AND a.lNetTutar < 10000000 AND a.nMusteriID > 0 "
+        "GROUP BY m.nMusteriID, m.sAdi, m.sSoyadi, m.sGSM "
+        "ORDER BY toplam_tutar DESC",
+        [bas, bit]
+    )
+    return jsonify([{
+        'id': r['nMusteriID'],
+        'adi': (r['sAdi'] or '').strip(),
+        'soyadi': (r['sSoyadi'] or '').strip(),
+        'telefon': (r['sGSM'] or '').strip(),
+        'islem_adedi': int(r['islem_adedi']),
+        'toplam_tutar': round(float(r['toplam_tutar']), 2),
+        'ort_fis': round(float(r['ort_fis']), 2),
+        'son_alisveris': r['son_alisveris'].strftime('%d.%m.%Y') if r['son_alisveris'] else '',
+    } for r in rows])
+
 @app.route('/api/rapor/satis')
 def api_rapor_satis():
     bas = request.args.get('bas', date.today().isoformat())

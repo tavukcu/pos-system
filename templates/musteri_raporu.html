@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}Musteri Raporu - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Musteri Raporu</h1>
+</div>
+
+<!-- FİLTRE -->
+<div class="card" style="padding:16px;margin-bottom:20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-secondary hizli-btn" data-tip="bugun" onclick="hizliFiltre('bugun')">Bugun</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="bu_hafta" onclick="hizliFiltre('bu_hafta')">Bu Hafta</button>
+        <button class="btn btn-secondary hizli-btn active" data-tip="bu_ay" onclick="hizliFiltre('bu_ay')">Bu Ay</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="son30" onclick="hizliFiltre('son30')">Son 30 Gun</button>
+        <span style="color:#dee2e6;margin:0 4px">|</span>
+        <input type="date" id="filtre-bas" onchange="yukle()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+        <span style="color:#999;font-size:13px">—</span>
+        <input type="date" id="filtre-bit" onchange="yukle()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+    </div>
+</div>
+
+<!-- ÖZET KARTLAR -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:20px">
+    <div class="stat-card">
+        <div class="label">Aktif Musteri</div>
+        <div class="value primary" id="s-musteri">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Toplam Ciro</div>
+        <div class="value success" id="s-ciro">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Musteri Basi Ort.</div>
+        <div class="value" id="s-ort">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">En Cok Harcayan</div>
+        <div id="s-top" style="font-size:14px;font-weight:700;color:#2563eb;margin-top:4px">--</div>
+    </div>
+</div>
+
+<!-- LİSTE -->
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">Musteri Listesi <span id="liste-sayisi" style="font-size:13px;font-weight:400;color:#666"></span></h2>
+        <input type="text" id="arama" placeholder="Ad, soyad veya telefon..." oninput="filterListe()"
+            style="padding:6px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;width:220px">
+    </div>
+    <div class="table-wrapper">
+        <table id="musteri-tablo">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Musteri</th>
+                    <th>Telefon</th>
+                    <th style="text-align:center">Islem</th>
+                    <th style="text-align:right">Toplam</th>
+                    <th style="text-align:right">Ort. Fis</th>
+                    <th>Son Alisveris</th>
+                </tr>
+            </thead>
+            <tbody id="liste-tbody">
+                <tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Yukleniyor...</td></tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="4" style="text-align:right">TOPLAM</th>
+                    <th id="liste-toplam" style="text-align:right;color:#0d6efd"></th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- MÜŞTERİ DETAY MODAL -->
+<div id="musteri-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1100;justify-content:center;align-items:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:680px;width:94%;max-height:85vh;overflow-y:auto;position:relative">
+        <button onclick="closeModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 id="modal-baslik" style="margin:0 0 4px"></h3>
+        <p id="modal-telefon" style="margin:0 0 16px;color:#666;font-size:13px"></p>
+
+        <!-- özet kartlar -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+            <div style="background:#f8fafc;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:11px;color:#666;margin-bottom:2px">Toplam Harcama</div>
+                <div id="modal-toplam" style="font-size:18px;font-weight:700;color:#10b981"></div>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:11px;color:#666;margin-bottom:2px">Islem Sayisi</div>
+                <div id="modal-islem" style="font-size:18px;font-weight:700;color:#2563eb"></div>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:11px;color:#666;margin-bottom:2px">Ort. Fis</div>
+                <div id="modal-ort" style="font-size:18px;font-weight:700"></div>
+            </div>
+        </div>
+
+        <h4 style="margin:0 0 8px;font-size:13px;color:#666">Son Alisverisler</h4>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Tarih</th><th>Saat</th><th>Fis</th><th style="text-align:right">Tutar</th><th>Odeme</th><th></th></tr></thead>
+                <tbody id="modal-satislar"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.hizli-btn.active { background:#2563eb !important; color:#fff !important; }
+#musteri-tablo tbody tr { cursor:pointer; }
+</style>
+<script>
+let tumData = [];
+
+const odemeAd = { 'N':'Nakit', 'K':'Kart', '1':'Kart', 'V':'Veresiye', 'T':'Odendi' };
+const odemeRenk = { 'N':'#10b981', 'K':'#2563eb', '1':'#2563eb', 'V':'#f59e0b', 'T':'#6b7280' };
+
+document.addEventListener('DOMContentLoaded', () => hizliFiltre('bu_ay'));
+
+function hizliFiltre(tip) {
+    document.querySelectorAll('.hizli-btn').forEach(b => b.classList.toggle('active', b.dataset.tip === tip));
+    const today = new Date();
+    let bas, bit = fmtDate(today);
+    if (tip === 'bugun') {
+        bas = bit;
+    } else if (tip === 'bu_hafta') {
+        const d = new Date(today);
+        const dow = today.getDay() || 7;
+        d.setDate(today.getDate() - dow + 1);
+        bas = fmtDate(d);
+    } else if (tip === 'bu_ay') {
+        bas = fmtDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    } else {
+        const d = new Date(today);
+        d.setDate(today.getDate() - 29);
+        bas = fmtDate(d);
+    }
+    document.getElementById('filtre-bas').value = bas;
+    document.getElementById('filtre-bit').value = bit;
+    yukle();
+}
+
+function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+async function yukle() {
+    const bas = document.getElementById('filtre-bas').value;
+    const bit = document.getElementById('filtre-bit').value;
+    if (!bas || !bit) return;
+    document.getElementById('liste-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Yukleniyor...</td></tr>';
+    const data = await fetch(`/api/rapor/musteri-listesi?bas=${bas}&bit=${bit}`).then(r => r.json());
+    tumData = data;
+    renderOzet(data);
+    renderListe(data);
+}
+
+function renderOzet(data) {
+    const toplamCiro = data.reduce((s, m) => s + m.toplam_tutar, 0);
+    document.getElementById('s-musteri').textContent = data.length;
+    document.getElementById('s-ciro').textContent = formatMoney(toplamCiro);
+    document.getElementById('s-ort').textContent = data.length ? formatMoney(toplamCiro / data.length) : '--';
+    document.getElementById('s-top').textContent = data.length ? esc(data[0].adi + ' ' + data[0].soyadi) + ' — ' + formatMoney(data[0].toplam_tutar) : '--';
+}
+
+function filterListe() {
+    const q = document.getElementById('arama').value.toLowerCase();
+    const filtered = q ? tumData.filter(m =>
+        (m.adi + ' ' + m.soyadi).toLowerCase().includes(q) || m.telefon.includes(q)
+    ) : tumData;
+    renderListe(filtered);
+}
+
+function renderListe(data) {
+    document.getElementById('liste-sayisi').textContent = data.length ? `(${data.length} musteri)` : '';
+    const tbody = document.getElementById('liste-tbody');
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Kayit yok</td></tr>';
+        document.getElementById('liste-toplam').textContent = '';
+        return;
+    }
+    const maxTutar = data[0].toplam_tutar || 1;
+    let toplam = 0;
+    tbody.innerHTML = data.map((m, i) => {
+        toplam += m.toplam_tutar;
+        const barW = Math.round(m.toplam_tutar / maxTutar * 60);
+        return `<tr onclick="showDetay(${m.id}, '${esc(m.adi + ' ' + m.soyadi)}', '${esc(m.telefon)}')">
+            <td style="color:#999;font-size:12px">${i+1}</td>
+            <td><strong>${esc(m.adi)} ${esc(m.soyadi)}</strong></td>
+            <td style="font-size:13px;color:#666">${esc(m.telefon)}</td>
+            <td style="text-align:center">${m.islem_adedi}</td>
+            <td style="text-align:right">
+                <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+                    <div style="width:60px;height:6px;background:#f1f5f9;border-radius:3px">
+                        <div style="width:${barW}px;height:100%;background:#2563eb;border-radius:3px"></div>
+                    </div>
+                    <strong>${formatMoney(m.toplam_tutar)}</strong>
+                </div>
+            </td>
+            <td style="text-align:right;color:#666">${formatMoney(m.ort_fis)}</td>
+            <td style="font-size:13px">${m.son_alisveris}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('liste-toplam').innerHTML = `<strong>${formatMoney(toplam)}</strong>`;
+}
+
+async function showDetay(id, ad, telefon) {
+    document.getElementById('modal-baslik').textContent = ad;
+    document.getElementById('modal-telefon').textContent = telefon || 'Telefon yok';
+    document.getElementById('modal-satislar').innerHTML = '<tr><td colspan="6">Yukleniyor...</td></tr>';
+    document.getElementById('modal-toplam').textContent = '--';
+    document.getElementById('modal-islem').textContent = '--';
+    document.getElementById('modal-ort').textContent = '--';
+    document.getElementById('musteri-modal').style.display = 'flex';
+
+    const data = await fetch('/api/musteri/' + id + '/gecmis').then(r => r.json());
+    const o = data.ozet;
+    document.getElementById('modal-toplam').textContent = formatMoney(o.toplam_harcama);
+    document.getElementById('modal-islem').textContent = o.islem_adedi;
+    document.getElementById('modal-ort').textContent = formatMoney(o.ort_fis);
+
+    document.getElementById('modal-satislar').innerHTML = data.satislar.map(s => {
+        const renk = odemeRenk[s.odeme] || '#666';
+        const ad = odemeAd[s.odeme] || s.odeme;
+        return `<tr>
+            <td>${s.tarih}</td>
+            <td>${s.saat}</td>
+            <td>#${s.fis_no}</td>
+            <td style="text-align:right;font-weight:600">${formatMoney(s.tutar)}</td>
+            <td><span style="font-size:11px;font-weight:600;color:${renk}">${ad}</span></td>
+            <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showSatisDetay('${s.id}',${s.fis_no},'${s.tarih}')">Detay</button></td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:#999">Kayit yok</td></tr>';
+}
+
+function closeModal() {
+    document.getElementById('musteri-modal').style.display = 'none';
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('musteri-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+});
+
+function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}
