@@ -56,7 +56,7 @@ if DB_MODE == 'postgres':
     _COL_MAP = {}
     for _t in ['nStokID','sKodu','sAciklama','sKisaAdi','nStokTipi','sBirimCinsi1',
         'nIskontoYuzdesi','sKdvTipi','lFiyat','sFiyatTipi','sBarkod','nFirmaID',
-        'nMusteriID','sAdi','sSoyadi','sTelefon1','sIl',
+        'nMusteriID','sAdi','sSoyadi',
         'nAlisverisID','sFisTipi','dteFaturaTarihi','nGirisCikis','lFaturaNo',
         'sMagaza','sKasiyerRumuzu','sAlisverisYapanAdi','sAlisverisYapanSoyadi',
         'lToplamMiktar','lMalBedeli','lNetTutar','sHareketTipi','sKullaniciAdi',
@@ -81,6 +81,9 @@ if DB_MODE == 'postgres':
         'dteIrsaliyeTarihi','lIrsaliyeNo','nSiparisID','nReceteNo',
         'nTransferID','nHesapID','nAlisverisID','nIrsaliyeFisiID']:
         _COL_MAP[_t.lower()] = _t
+    # tbMusteri ozel mappingler (SQL Server kolon adi != PostgreSQL kolon adi)
+    _COL_MAP['stelefon1'] = 'sGSM'
+    _COL_MAP['sil'] = 'sIsIl'
 
     def _restore_keys(row):
         return {_COL_MAP.get(k, k): v for k, v in row.items()}
