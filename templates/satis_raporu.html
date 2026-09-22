@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Satis Raporu - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Satis Raporu</h1>
+</div>
+
+<!-- FİLTRE -->
+<div class="card" style="padding:16px;margin-bottom:20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-secondary hizli-btn" data-tip="bugun" onclick="hizliFiltre('bugun')">Bugun</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="bu_hafta" onclick="hizliFiltre('bu_hafta')">Bu Hafta</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="bu_ay" onclick="hizliFiltre('bu_ay')">Bu Ay</button>
+        <button class="btn btn-secondary hizli-btn active" data-tip="son30" onclick="hizliFiltre('son30')">Son 30 Gun</button>
+        <span style="color:#dee2e6;margin:0 4px">|</span>
+        <input type="date" id="filtre-bas" onchange="yukle()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+        <span style="color:#999;font-size:13px">—</span>
+        <input type="date" id="filtre-bit" onchange="yukle()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+    </div>
+</div>
+
+<!-- ÖZET KARTLAR -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px">
+    <div class="stat-card">
+        <div class="label">Toplam Ciro</div>
+        <div class="value success" id="s-ciro">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Islem Sayisi</div>
+        <div class="value primary" id="s-islem">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Ort. Fis</div>
+        <div class="value" id="s-ort">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">En Yuksek Gun</div>
+        <div class="value warning" id="s-peak">--</div>
+    </div>
+</div>
+
+<!-- ÖDEME TİPİ -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px">
+    <div class="stat-card" style="border-top:3px solid #10b981">
+        <div class="label">Nakit</div>
+        <div class="value" id="s-nakit" style="font-size:20px">--</div>
+        <div id="s-nakit-pct" style="font-size:12px;color:#999;margin-top:4px"></div>
+    </div>
+    <div class="stat-card" style="border-top:3px solid #2563eb">
+        <div class="label">Kredi Karti</div>
+        <div class="value" id="s-kart" style="font-size:20px">--</div>
+        <div id="s-kart-pct" style="font-size:12px;color:#999;margin-top:4px"></div>
+    </div>
+    <div class="stat-card" style="border-top:3px solid #f59e0b">
+        <div class="label">Veresiye</div>
+        <div class="value" id="s-veresiye" style="font-size:20px">--</div>
+        <div id="s-veresiye-pct" style="font-size:12px;color:#999;margin-top:4px"></div>
+    </div>
+</div>
+
+<!-- GRAFİK -->
+<div class="card">
+    <h2 style="margin-bottom:16px">Gunluk Ciro</h2>
+    <div style="overflow-x:auto">
+        <div class="chart-container" id="chart-satis" style="height:220px;margin-bottom:32px"></div>
+    </div>
+</div>
+
+<!-- TABLO -->
+<div class="card">
+    <h2 style="margin-bottom:16px">Gunluk Detay</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tarih</th>
+                    <th style="text-align:center">Islem</th>
+                    <th style="text-align:right">Ciro</th>
+                    <th style="text-align:right">Ort. Fis</th>
+                    <th style="text-align:right">Pay</th>
+                </tr>
+            </thead>
+            <tbody id="tablo-tbody">
+                <tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Yukleniyor...</td></tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="2" style="text-align:right">TOPLAM</th>
+                    <th id="tablo-toplam" style="text-align:right;color:#0d6efd"></th>
+                    <th colspan="2"></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.hizli-btn.active { background:#2563eb !important; color:#fff !important; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => hizliFiltre('son30'));
+
+function hizliFiltre(tip) {
+    document.querySelectorAll('.hizli-btn').forEach(b => b.classList.toggle('active', b.dataset.tip === tip));
+    const today = new Date();
+    let bas, bit = fmtDate(today);
+    if (tip === 'bugun') {
+        bas = bit;
+    } else if (tip === 'bu_hafta') {
+        const d = new Date(today);
+        const dow = today.getDay() || 7;
+        d.setDate(today.getDate() - dow + 1);
+        bas = fmtDate(d);
+    } else if (tip === 'bu_ay') {
+        bas = fmtDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    } else {
+        const d = new Date(today);
+        d.setDate(today.getDate() - 29);
+        bas = fmtDate(d);
+    }
+    document.getElementById('filtre-bas').value = bas;
+    document.getElementById('filtre-bit').value = bit;
+    yukle();
+}
+
+function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+async function yukle() {
+    const bas = document.getElementById('filtre-bas').value;
+    const bit = document.getElementById('filtre-bit').value;
+    if (!bas || !bit) return;
+    const data = await fetch(`/api/rapor/satis?bas=${bas}&bit=${bit}`).then(r => r.json());
+    renderOzet(data);
+    renderOdeme(data);
+    renderGrafik(data.gunluk);
+    renderTablo(data.gunluk, data.toplam_ciro);
+}
+
+function renderOzet(d) {
+    document.getElementById('s-ciro').textContent = formatMoney(d.toplam_ciro);
+    document.getElementById('s-islem').textContent = d.toplam_islem;
+    document.getElementById('s-ort').textContent = formatMoney(d.ort_fis);
+    document.getElementById('s-peak').textContent = formatMoney(d.en_yuksek_gun);
+}
+
+function renderOdeme(d) {
+    const toplam = d.toplam_ciro || 1;
+    const o = d.odeme;
+    const pct = v => toplam > 0 ? (v / toplam * 100).toFixed(1) + '%' : '0%';
+    document.getElementById('s-nakit').textContent = formatMoney(o.nakit);
+    document.getElementById('s-nakit-pct').textContent = pct(o.nakit);
+    document.getElementById('s-kart').textContent = formatMoney(o.kart);
+    document.getElementById('s-kart-pct').textContent = pct(o.kart);
+    document.getElementById('s-veresiye').textContent = formatMoney(o.veresiye);
+    document.getElementById('s-veresiye-pct').textContent = pct(o.veresiye);
+}
+
+function renderGrafik(gunluk) {
+    const el = document.getElementById('chart-satis');
+    el.innerHTML = '';
+    if (!gunluk.length) {
+        el.innerHTML = '<p style="color:#999;padding:20px">Veri yok</p>';
+        return;
+    }
+    const maxC = Math.max(...gunluk.map(g => g.ciro), 1);
+    gunluk.forEach(g => {
+        const pct = (g.ciro / maxC) * 190;
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar';
+        bar.style.height = Math.max(pct, 4) + 'px';
+        bar.title = g.tarih_tam + ': ' + formatMoney(g.ciro);
+        if (gunluk.length <= 31) bar.innerHTML += `<span class="bar-label">${g.tarih}</span>`;
+        if (gunluk.length <= 14) bar.innerHTML += `<span class="bar-value">${formatShort(g.ciro)}</span>`;
+        el.appendChild(bar);
+    });
+}
+
+function renderTablo(gunluk, toplamCiro) {
+    const tbody = document.getElementById('tablo-tbody');
+    if (!gunluk.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Kayit yok</td></tr>';
+        document.getElementById('tablo-toplam').textContent = '';
+        return;
+    }
+    const maxCiro = Math.max(...gunluk.map(g => g.ciro), 1);
+    tbody.innerHTML = [...gunluk].reverse().map(g => {
+        const ort = g.islem ? g.ciro / g.islem : 0;
+        const pay = toplamCiro > 0 ? (g.ciro / toplamCiro * 100).toFixed(1) : '0.0';
+        const barW = Math.round(g.ciro / maxCiro * 60);
+        return `<tr>
+            <td><strong>${g.tarih_tam}</strong></td>
+            <td style="text-align:center">${g.islem}</td>
+            <td style="text-align:right">
+                <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+                    <div style="width:60px;height:6px;background:#f1f5f9;border-radius:3px">
+                        <div style="width:${barW}px;height:100%;background:#2563eb;border-radius:3px"></div>
+                    </div>
+                    <strong>${formatMoney(g.ciro)}</strong>
+                </div>
+            </td>
+            <td style="text-align:right;color:#666">${formatMoney(ort)}</td>
+            <td style="text-align:right;color:#999;font-size:12px">${pay}%</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('tablo-toplam').innerHTML = `<strong>${formatMoney(toplamCiro)}</strong>`;
+}
+</script>
+{% endblock %}

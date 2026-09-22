@@ -138,6 +138,66 @@ def musteriler():
 def raporlar():
     return render_template('raporlar.html')
 
+@app.route('/satis-raporu')
+def satis_raporu():
+    return render_template('satis_raporu.html')
+
+@app.route('/api/rapor/satis')
+def api_rapor_satis():
+    bas = request.args.get('bas', date.today().isoformat())
+    bit = request.args.get('bit', date.today().isoformat())
+
+    gunluk = query(
+        "SELECT CAST(dteFaturaTarihi AS DATE) AS gun, "
+        "COUNT(*) AS islem_adedi, "
+        "ISNULL(SUM(lNetTutar), 0) AS ciro "
+        "FROM tbAlisVeris "
+        "WHERE CAST(dteFaturaTarihi AS DATE) >= ? "
+        "AND CAST(dteFaturaTarihi AS DATE) <= ? "
+        "AND lNetTutar < 10000000 "
+        "GROUP BY CAST(dteFaturaTarihi AS DATE) "
+        "ORDER BY gun",
+        [bas, bit]
+    )
+
+    odeme_rows = query(
+        "SELECT RTRIM(o.sOdemeSekli) AS sekil, "
+        "ISNULL(SUM(a.lNetTutar), 0) AS tutar "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) >= ? "
+        "AND CAST(a.dteFaturaTarihi AS DATE) <= ? "
+        "AND a.lNetTutar < 10000000 "
+        "GROUP BY RTRIM(o.sOdemeSekli)",
+        [bas, bit]
+    )
+
+    toplam_ciro = sum(float(r['ciro']) for r in gunluk)
+    toplam_islem = sum(int(r['islem_adedi']) for r in gunluk)
+    en_yuksek = max((float(r['ciro']) for r in gunluk), default=0)
+
+    odeme = {'nakit': 0.0, 'kart': 0.0, 'veresiye': 0.0}
+    for r in odeme_rows:
+        s = (r['sekil'] or '').strip()
+        tutar = float(r['tutar'])
+        if s == 'N': odeme['nakit'] += tutar
+        elif s in ('K', '1'): odeme['kart'] += tutar
+        elif s in ('V', 'T'): odeme['veresiye'] += tutar
+
+    return jsonify({
+        'toplam_ciro': round(toplam_ciro, 2),
+        'toplam_islem': toplam_islem,
+        'ort_fis': round(toplam_ciro / toplam_islem, 2) if toplam_islem else 0,
+        'en_yuksek_gun': round(en_yuksek, 2),
+        'odeme': odeme,
+        'gunluk': [{
+            'tarih': r['gun'].strftime('%d.%m') if hasattr(r['gun'], 'strftime') else str(r['gun'])[-5:].replace('-', '.'),
+            'tarih_tam': r['gun'].strftime('%d.%m.%Y') if hasattr(r['gun'], 'strftime') else str(r['gun']),
+            'ciro': round(float(r['ciro']), 2),
+            'islem': int(r['islem_adedi']),
+        } for r in gunluk],
+    })
+
 
 # --- API: URUNLER ---
 
