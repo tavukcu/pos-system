@@ -1,85 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Alis Faturasi - POS{% endblock %}
+{% block title %}Alis Faturalari - POS{% endblock %}
 {% block content %}
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <h1>Alis Faturasi Girisi</h1>
+    <h1>Alis Faturalari</h1>
 </div>
 
-<div class="grid grid-2" style="align-items:start">
-
-<!-- SOL: FATURA GIRISI -->
-<div>
-    <!-- FATURA BILGILERI -->
-    <div class="card" style="margin-bottom:12px">
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <div style="flex:1;min-width:140px">
-                <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Fatura Tarihi</label>
-                <input type="date" id="f-tarih" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;box-sizing:border-box">
-            </div>
-            <div style="flex:1;min-width:120px">
-                <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Fatura No</label>
-                <input type="number" id="f-no" min="1" placeholder="1" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;box-sizing:border-box">
-            </div>
-            <div style="flex:2;min-width:160px">
-                <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Tedarikci (Opsiyonel)</label>
-                <input type="text" id="f-tedarikci" placeholder="Tedarikci adi..." style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:8px;font-size:14px;box-sizing:border-box">
-            </div>
-        </div>
-    </div>
-
-    <!-- URUN ARAMA -->
-    <div class="card" style="margin-bottom:12px">
-        <div style="position:relative">
-            <input type="text" id="urun-ara" placeholder="Urun adi veya kodu ile ara..."
-                style="width:100%;padding:10px 12px;border:2px solid #dee2e6;border-radius:8px;font-size:14px;box-sizing:border-box"
-                oninput="debounceAra()" autocomplete="off">
-            <div id="arama-sonuc" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;max-height:280px;overflow-y:auto;margin-top:4px"></div>
-        </div>
-    </div>
-
-    <!-- SATIRLAR -->
-    <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h3 style="margin:0;font-size:15px">Fatura Satirlari</h3>
-            <span id="satir-sayisi" style="font-size:13px;color:#666">0 urun</span>
-        </div>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Urun</th>
-                        <th style="text-align:center">Birim</th>
-                        <th style="text-align:right;width:100px">Miktar</th>
-                        <th style="text-align:right;width:110px">Alis Fiyati</th>
-                        <th style="text-align:right;width:100px">Tutar</th>
-                        <th style="width:36px"></th>
-                    </tr>
-                </thead>
-                <tbody id="satirlar-tbody">
-                    <tr id="bos-satir"><td colspan="6" style="text-align:center;color:#999;padding:32px">Urun eklemek icin yukari arama kutusunu kullanin</td></tr>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <th colspan="4" style="text-align:right">TOPLAM</th>
-                        <th id="genel-toplam" style="text-align:right;color:#0d6efd;font-size:16px">0,00 TL</th>
-                        <th></th>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-
-        <div id="kaydet-alan" style="display:none;margin-top:16px;justify-content:flex-end;gap:8px">
-            <button class="btn btn-secondary" onclick="temizle()">Temizle</button>
-            <button class="btn btn-primary btn-lg" id="kaydet-btn" onclick="kaydetFatura()">Fatura Kaydet</button>
-        </div>
-        <div id="kaydet-alan-bos" style="margin-top:12px;text-align:right;color:#999;font-size:13px">Urun ekleyin</div>
-    </div>
-</div>
-
-<!-- SAG: SON FATURALAR -->
 <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-        <h2 style="margin:0">Son Alis Faturalari <span id="fatura-sayisi" style="font-size:13px;font-weight:400;color:#666"></span></h2>
+        <h2 style="margin:0">Fatura Listesi <span id="fatura-sayisi" style="font-size:13px;font-weight:400;color:#666"></span></h2>
         <select id="filtre-tedarikci" onchange="yukleListe()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;min-width:160px">
             <option value="">Tum Tedarikciler</option>
         </select>
@@ -115,8 +43,6 @@
     </div>
 </div>
 
-</div>
-
 <!-- DETAY MODAL -->
 <div id="detay-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center">
     <div style="background:#fff;border-radius:12px;padding:24px;max-width:580px;width:92%;max-height:80vh;overflow-y:auto;position:relative">
@@ -135,12 +61,7 @@
 
 {% block scripts %}
 <script>
-let satirlar = [];
-let debounceTimer = null;
-const TODAY = new Date().toISOString().split('T')[0];
-
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('f-tarih').value = TODAY;
     yukleTedarikciler();
     yukleListe();
 });
@@ -156,189 +77,6 @@ async function yukleTedarikciler() {
     });
 }
 
-// --- URUN ARAMA ---
-function debounceAra() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(araUrun, 300);
-}
-
-async function araUrun() {
-    const q = document.getElementById('urun-ara').value.trim();
-    if (q.length < 2) { document.getElementById('arama-sonuc').style.display = 'none'; return; }
-    const data = await fetch('/api/urunler?q=' + encodeURIComponent(q)).then(r => r.json());
-    const div = document.getElementById('arama-sonuc');
-    if (!data.length) {
-        div.innerHTML = '<div style="padding:12px;color:#999;text-align:center">Urun bulunamadi</div>';
-    } else {
-        div.innerHTML = data.slice(0, 15).map(u => `
-            <div onclick="urunEkle(${u.id},'${esc(u.ad)}','${esc(u.birim)}')"
-                style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center"
-                onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background=''">
-                <div>
-                    <strong style="font-size:13px">${esc(u.ad)}</strong>
-                    <span style="font-size:11px;color:#999;margin-left:6px">${esc(u.kod)}</span>
-                </div>
-                <span style="font-size:12px;color:#666;white-space:nowrap">${esc(u.birim)}</span>
-            </div>`).join('');
-    }
-    div.style.display = 'block';
-}
-
-document.addEventListener('click', e => {
-    if (!e.target.closest('#urun-ara') && !e.target.closest('#arama-sonuc')) {
-        document.getElementById('arama-sonuc').style.display = 'none';
-    }
-});
-
-document.getElementById('urun-ara').addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        document.getElementById('arama-sonuc').style.display = 'none';
-        document.getElementById('urun-ara').value = '';
-    }
-});
-
-// --- SATIRLAR ---
-function urunEkle(id, ad, birim) {
-    document.getElementById('arama-sonuc').style.display = 'none';
-    document.getElementById('urun-ara').value = '';
-
-    // Zaten varsa odaklan
-    const mevcut = satirlar.findIndex(s => s.stok_id === id);
-    if (mevcut >= 0) {
-        document.getElementById('miktar-' + mevcut).focus();
-        document.getElementById('miktar-' + mevcut).select();
-        return;
-    }
-
-    satirlar.push({ stok_id: id, ad, birim, miktar: 1, fiyat: 0 });
-    renderSatirlar();
-    const idx = satirlar.length - 1;
-    setTimeout(() => {
-        const inp = document.getElementById('fiyat-' + idx);
-        if (inp) { inp.focus(); inp.select(); }
-    }, 50);
-}
-
-function satirSil(idx) {
-    satirlar.splice(idx, 1);
-    renderSatirlar();
-}
-
-function renderSatirlar() {
-    const tbody = document.getElementById('satirlar-tbody');
-    const bos = document.getElementById('bos-satir');
-
-    if (!satirlar.length) {
-        tbody.innerHTML = '<tr id="bos-satir"><td colspan="6" style="text-align:center;color:#999;padding:32px">Urun eklemek icin yukari arama kutusunu kullanin</td></tr>';
-        document.getElementById('genel-toplam').textContent = '0,00 TL';
-        document.getElementById('kaydet-alan').style.display = 'none';
-        document.getElementById('kaydet-alan-bos').style.display = 'block';
-        document.getElementById('satir-sayisi').textContent = '0 urun';
-        return;
-    }
-
-    document.getElementById('kaydet-alan').style.display = 'flex';
-    document.getElementById('kaydet-alan-bos').style.display = 'none';
-    document.getElementById('satir-sayisi').textContent = satirlar.length + ' urun';
-
-    tbody.innerHTML = satirlar.map((s, i) => `
-        <tr id="satir-${i}">
-            <td><strong style="font-size:13px">${esc(s.ad)}</strong></td>
-            <td style="text-align:center;color:#666;font-size:13px">${esc(s.birim)}</td>
-            <td style="text-align:right">
-                <input type="number" id="miktar-${i}" value="${s.miktar}" min="0.001" step="0.001"
-                    style="width:80px;padding:4px 6px;border:1px solid #dee2e6;border-radius:6px;text-align:right;font-size:13px"
-                    onchange="updateSatir(${i},'miktar',this.value)"
-                    onkeydown="handleSatirKey(event,${i},'miktar')">
-            </td>
-            <td style="text-align:right">
-                <input type="number" id="fiyat-${i}" value="${s.fiyat || ''}" min="0" step="0.01"
-                    placeholder="0.00"
-                    style="width:90px;padding:4px 6px;border:1px solid ${s.fiyat>0?'#dee2e6':'#ffc107'};border-radius:6px;text-align:right;font-size:13px"
-                    onchange="updateSatir(${i},'fiyat',this.value)"
-                    onkeydown="handleSatirKey(event,${i},'fiyat')">
-            </td>
-            <td style="text-align:right;font-weight:600">${formatMoney(s.miktar * s.fiyat)}</td>
-            <td><button onclick="satirSil(${i})" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;padding:2px 4px">&times;</button></td>
-        </tr>`).join('');
-
-    const toplam = satirlar.reduce((sum, s) => sum + s.miktar * s.fiyat, 0);
-    document.getElementById('genel-toplam').textContent = formatMoney(toplam);
-}
-
-function updateSatir(idx, alan, deger) {
-    satirlar[idx][alan] = parseFloat(deger) || 0;
-    // Sadece tutar ve toplam guncelle
-    const tutar = satirlar[idx].miktar * satirlar[idx].fiyat;
-    const satirTr = document.getElementById('satir-' + idx);
-    if (satirTr) {
-        const cells = satirTr.querySelectorAll('td');
-        cells[4].textContent = formatMoney(tutar);
-        // Fiyat input borderi
-        const fiyatInp = document.getElementById('fiyat-' + idx);
-        if (fiyatInp) fiyatInp.style.borderColor = satirlar[idx].fiyat > 0 ? '#dee2e6' : '#ffc107';
-    }
-    const toplam = satirlar.reduce((sum, s) => sum + s.miktar * s.fiyat, 0);
-    document.getElementById('genel-toplam').textContent = formatMoney(toplam);
-}
-
-function handleSatirKey(e, idx, alan) {
-    if (e.key === 'Enter') {
-        if (alan === 'fiyat') {
-            // Sonraki satırın fiyatına geç veya aramaya odaklan
-            const nextFiyat = document.getElementById('fiyat-' + (idx + 1));
-            if (nextFiyat) nextFiyat.focus();
-            else document.getElementById('urun-ara').focus();
-        }
-    }
-}
-
-function temizle() {
-    if (satirlar.length && !confirm('Tum satirlar silinecek. Emin misiniz?')) return;
-    satirlar = [];
-    renderSatirlar();
-}
-
-// --- KAYDET ---
-async function kaydetFatura() {
-    const fiyatsiz = satirlar.filter(s => s.fiyat <= 0);
-    if (fiyatsiz.length) {
-        alert(`${fiyatsiz.length} urunde alis fiyati girilmemis. Lutfen fiyatlari kontrol edin.`);
-        return;
-    }
-    if (!satirlar.length) return;
-
-    const tarih = document.getElementById('f-tarih').value;
-    const fis_no = parseInt(document.getElementById('f-no').value) || 1;
-
-    const btn = document.getElementById('kaydet-btn');
-    btn.disabled = true; btn.textContent = 'Kaydediliyor...';
-
-    try {
-        const res = await fetch('/api/alis-faturasi/kaydet', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tarih, fis_no, satirlar })
-        }).then(r => r.json());
-
-        if (res.ok) {
-            const toplam = satirlar.reduce((s, x) => s + x.miktar * x.fiyat, 0);
-            alert(`Fatura kaydedildi! ${res.satir_sayisi} urun, ${formatMoney(toplam)}`);
-            satirlar = [];
-            renderSatirlar();
-            document.getElementById('f-no').value = '';
-            document.getElementById('f-tedarikci').value = '';
-            yukleListe();
-        } else {
-            alert('Hata: ' + (res.error || 'Bilinmeyen hata'));
-        }
-    } catch(e) {
-        alert('Hata: ' + e.message);
-    } finally {
-        btn.disabled = false; btn.textContent = 'Fatura Kaydet';
-    }
-}
-
 function filtreTemizle() {
     document.getElementById('filtre-tedarikci').value = '';
     document.getElementById('filtre-bas').value = '';
@@ -346,7 +84,6 @@ function filtreTemizle() {
     yukleListe();
 }
 
-// --- SON FATURALAR LiSTESi ---
 async function yukleListe() {
     const firmaId = document.getElementById('filtre-tedarikci').value;
     const bas = document.getElementById('filtre-bas').value;
@@ -372,7 +109,6 @@ async function yukleListe() {
         : '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Kayit yok</td></tr>';
 }
 
-// --- DETAY MODAL ---
 async function showDetay(fis_id, tarih) {
     document.getElementById('detay-baslik').textContent = tarih + ' tarihli fatura';
     document.getElementById('detay-tbody').innerHTML = '<tr><td colspan="4">Yukleniyor...</td></tr>';
