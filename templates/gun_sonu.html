@@ -1,13 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Gun Sonu Raporu - POS{% endblock %}
 {% block content %}
-<div class="page-header gs-screen" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div class="page-header gs-screen">
     <h1>Gun Sonu Raporu</h1>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <input type="date" id="tarih-input" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:8px;font-size:14px">
-        <button class="btn btn-primary" onclick="yukle()">Getir</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="window.print()">&#128438; Yazdir</button>
         <button class="btn btn-secondary" onclick="exportExcel()">&#8595; Excel</button>
+    </div>
+</div>
+
+<!-- FİLTRE -->
+<div class="card gs-screen" style="padding:14px;margin-bottom:20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-secondary hizli-btn active" data-tip="bugun" onclick="hizliFiltre('bugun')">Bugun</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="dun" onclick="hizliFiltre('dun')">Dun</button>
+        <span style="color:#dee2e6;margin:0 4px">|</span>
+        <input type="date" id="tarih-input" onchange="yukle()"
+            style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
     </div>
 </div>
 
@@ -19,7 +28,7 @@
 </div>
 
 <!-- OZET KARTLAR -->
-<div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px"></div>
+<div id="ozet-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:20px"></div>
 
 <!-- ALT BOLUMLER -->
 <div class="gs-grid">
@@ -78,6 +87,7 @@
 </div>
 
 <style>
+.hizli-btn.active { background:#2563eb !important; color:#fff !important; }
 .gs-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
 .gs-print-header { display:none;text-align:center;margin-bottom:16px; }
 
@@ -88,7 +98,7 @@
 @media print {
     .gs-screen { display:none !important; }
     .gs-print-header { display:block !important; }
-    nav, .sidebar, header { display:none !important; }
+    nav, .sidebar { display:none !important; }
     .content { margin:0 !important; padding:0 !important; }
     body { font-size:12px; }
     .card { box-shadow:none;border:1px solid #ddd;break-inside:avoid;margin-bottom:12px; }
@@ -102,16 +112,30 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('tarih-input').value = new Date().toISOString().split('T')[0];
-    yukle();
-});
-
+document.addEventListener('DOMContentLoaded', () => hizliFiltre('bugun'));
 document.getElementById('tarih-input').addEventListener('keydown', e => { if (e.key === 'Enter') yukle(); });
+
+function hizliFiltre(tip) {
+    document.querySelectorAll('.hizli-btn').forEach(b => b.classList.toggle('active', b.dataset.tip === tip));
+    const d = new Date();
+    if (tip === 'dun') d.setDate(d.getDate() - 1);
+    document.getElementById('tarih-input').value = fmtDate(d);
+    yukle();
+}
+
+function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 
 async function yukle() {
     const tarih = document.getElementById('tarih-input').value;
     if (!tarih) return;
+    document.querySelectorAll('.hizli-btn').forEach(b => {
+        if (b.dataset.tip !== 'bugun' && b.dataset.tip !== 'dun') return;
+        const ref = new Date();
+        if (b.dataset.tip === 'dun') ref.setDate(ref.getDate() - 1);
+        b.classList.toggle('active', fmtDate(ref) === tarih);
+    });
 
     document.getElementById('print-tarih').textContent = formatTarih(tarih);
 
@@ -130,36 +154,40 @@ async function yukle() {
 function formatTarih(iso) {
     const [y, m, d] = iso.split('-');
     const gunler = ['Pazar','Pazartesi','Sali','Carsamba','Persembe','Cuma','Cumartesi'];
-    const gun = new Date(iso).getDay();
+    const gun = new Date(iso + 'T12:00:00').getDay();
     return `${d}.${m}.${y} ${gunler[gun]}`;
 }
 
 function renderOzet(o, ciro) {
     const ort = o.toplam.islem > 0 ? o.toplam.tutar / o.toplam.islem : 0;
     document.getElementById('ozet-cards').innerHTML = `
-        <div class="stat-card">
-            <div class="stat-value" style="color:#198754">${formatMoney(o.nakit.tutar)}</div>
-            <div class="stat-label">Nakit (${o.nakit.islem} islem)</div>
+        <div class="stat-card" style="border-top:3px solid #10b981">
+            <div class="label">Nakit</div>
+            <div class="value" style="color:#10b981">${formatMoney(o.nakit.tutar)}</div>
+            <div style="font-size:12px;color:#999;margin-top:4px">${o.nakit.islem} islem</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value" style="color:#0d6efd">${formatMoney(o.kart.tutar)}</div>
-            <div class="stat-label">Kart (${o.kart.islem} islem)</div>
+        <div class="stat-card" style="border-top:3px solid #2563eb">
+            <div class="label">Kredi Karti</div>
+            <div class="value" style="color:#2563eb">${formatMoney(o.kart.tutar)}</div>
+            <div style="font-size:12px;color:#999;margin-top:4px">${o.kart.islem} islem</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value" style="color:#dc3545">${formatMoney(o.veresiye.tutar)}</div>
-            <div class="stat-label">Veresiye (${o.veresiye.islem} islem)</div>
+        <div class="stat-card" style="border-top:3px solid #f59e0b">
+            <div class="label">Veresiye</div>
+            <div class="value" style="color:#f59e0b">${formatMoney(o.veresiye.tutar)}</div>
+            <div style="font-size:12px;color:#999;margin-top:4px">${o.veresiye.islem} islem</div>
         </div>
-        <div class="stat-card" style="background:#f8f9fa;border:2px solid #dee2e6">
-            <div class="stat-value" style="color:#212529">${formatMoney(o.toplam.tutar)}</div>
-            <div class="stat-label"><strong>TOPLAM (${o.toplam.islem} islem)</strong></div>
+        <div class="stat-card" style="border-top:3px solid #334155">
+            <div class="label">TOPLAM</div>
+            <div class="value">${formatMoney(o.toplam.tutar)}</div>
+            <div style="font-size:12px;color:#999;margin-top:4px">${o.toplam.islem} islem</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value">${formatMoney(ort)}</div>
-            <div class="stat-label">Ort. Fis</div>
+        <div class="stat-card" style="border-top:3px solid #6b7280">
+            <div class="label">Ort. Fis</div>
+            <div class="value">${formatMoney(ort)}</div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value" style="color:#6f42c1">${formatMoney(ciro)}</div>
-            <div class="stat-label">Urun Cirosu</div>
+        <div class="stat-card" style="border-top:3px solid #8b5cf6">
+            <div class="label">Urun Cirosu</div>
+            <div class="value" style="color:#8b5cf6">${formatMoney(ciro)}</div>
         </div>
     `;
 }
@@ -172,9 +200,9 @@ function renderKasiyerler(data) {
     document.getElementById('kasiyer-tbody').innerHTML = data.map(k => `
         <tr>
             <td><strong>${esc(k.ad)}</strong></td>
-            <td style="text-align:right;color:#198754">${k.nakit > 0 ? formatMoney(k.nakit) : '-'}</td>
-            <td style="text-align:right;color:#0d6efd">${k.kart > 0 ? formatMoney(k.kart) : '-'}</td>
-            <td style="text-align:right;color:#dc3545">${k.veresiye > 0 ? formatMoney(k.veresiye) : '-'}</td>
+            <td style="text-align:right;color:#10b981">${k.nakit > 0 ? formatMoney(k.nakit) : '-'}</td>
+            <td style="text-align:right;color:#2563eb">${k.kart > 0 ? formatMoney(k.kart) : '-'}</td>
+            <td style="text-align:right;color:#f59e0b">${k.veresiye > 0 ? formatMoney(k.veresiye) : '-'}</td>
             <td style="text-align:right;font-weight:700">${formatMoney(k.toplam)}</td>
             <td style="text-align:center">${k.islem}</td>
         </tr>
@@ -188,28 +216,33 @@ function renderSaatlik(data, toplamTutar) {
     }
     document.getElementById('saat-tbody').innerHTML = data.map(s => {
         const oran = toplamTutar > 0 ? (s.tutar / toplamTutar * 100).toFixed(1) : 0;
-        const bar = `<div style="display:inline-block;width:${Math.max(parseFloat(oran), 1) * 1.2}px;height:8px;background:#0d6efd;border-radius:4px;vertical-align:middle;margin-right:4px"></div>`;
+        const barW = Math.max(parseFloat(oran) * 1.2, 2);
         return `<tr>
             <td><strong>${s.saat}:00–${s.saat+1}:00</strong></td>
             <td style="text-align:center">${s.islem}</td>
             <td style="text-align:right">${formatMoney(s.tutar)}</td>
-            <td>${bar}${oran}%</td>
+            <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <div style="width:${barW}px;height:8px;background:#2563eb;border-radius:4px;min-width:2px"></div>
+                    <span>${oran}%</span>
+                </div>
+            </td>
         </tr>`;
     }).join('');
 }
 
 function renderUrunler(data) {
-    if (!data.length) {
+    if (!data || !data.length) {
         document.getElementById('urun-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999">Veri yok</td></tr>';
         return;
     }
     document.getElementById('urun-tbody').innerHTML = data.map((u, i) => `
         <tr>
-            <td style="color:#999">${i+1}</td>
+            <td style="color:#999;font-size:12px">${i+1}</td>
             <td><strong>${esc(u.ad)}</strong></td>
-            <td style="text-align:right">${u.miktar.toFixed(u.birim === 'KG' ? 2 : 0)} ${esc(u.birim)}</td>
+            <td style="text-align:right;color:#666">${u.miktar.toFixed(u.birim === 'KG' ? 2 : 0)} ${esc(u.birim)}</td>
             <td style="text-align:right;font-weight:700">${formatMoney(u.tutar)}</td>
-            <td style="text-align:right;color:#666">${u.oran}%</td>
+            <td style="text-align:right;color:#999;font-size:12px">${u.oran}%</td>
         </tr>
     `).join('');
 }
@@ -220,8 +253,6 @@ function exportExcel() {
     window.location = '/api/export/gun_sonu?tarih=' + tarih;
 }
 
-function esc(s) {
-    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>
 {% endblock %}
