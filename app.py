@@ -1721,6 +1721,25 @@ def api_rapor_canli():
         [tarih]
     )
 
+    # Odeme tipi dagilimi
+    odeme_rows = query(
+        "SELECT RTRIM(o.sOdemeSekli) AS sekil, "
+        "ISNULL(SUM(a.lNetTutar), 0) AS tutar "
+        "FROM tbAlisVeris a "
+        "JOIN tbOdeme o ON RTRIM(a.nAlisverisID) = RTRIM(o.nAlisverisID) "
+        "WHERE CAST(a.dteFaturaTarihi AS DATE) = ? "
+        "AND a.lNetTutar < 10000000 "
+        "GROUP BY RTRIM(o.sOdemeSekli)",
+        [tarih]
+    )
+    odeme = {'nakit': 0.0, 'kart': 0.0, 'veresiye': 0.0}
+    for r in odeme_rows:
+        s = (r['sekil'] or '').strip()
+        t = float(r['tutar'])
+        if s == 'N': odeme['nakit'] += t
+        elif s in ('K', '1'): odeme['kart'] += t
+        elif s in ('V', 'T'): odeme['veresiye'] += t
+
     # Son satislar (bugunun, kasiyer ismiyle)
     son_satislar = query(
         "SELECT TOP 100 a.nAlisverisID, a.sFisTipi, a.dteFaturaTarihi, "
@@ -1742,6 +1761,9 @@ def api_rapor_canli():
             'islem_adedi': int(ozet[0]['islem_adedi']),
             'toplam_ciro': float(ozet[0]['toplam_ciro']),
             'ort_fis': float(ozet[0]['ort_fis']),
+            'nakit': odeme['nakit'],
+            'kart': odeme['kart'],
+            'veresiye': odeme['veresiye'],
         },
         'elemanlar': [{
             'ad': (r['eleman_adi'] or '').strip(),

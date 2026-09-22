@@ -44,8 +44,8 @@ body {
 /* ANA KARTLAR */
 .ozet-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 20px;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    gap: 16px;
     padding: 20px 32px 16px;
 }
 .ozet-kart {
@@ -63,9 +63,11 @@ body {
     top: 0; left: 0; right: 0;
     height: 4px;
 }
-.ozet-kart.ciro::before  { background: linear-gradient(90deg, #10b981, #059669); }
-.ozet-kart.islem::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
-.ozet-kart.ort::before   { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.ozet-kart.ciro::before    { background: linear-gradient(90deg, #10b981, #059669); }
+.ozet-kart.islem::before   { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.ozet-kart.ort::before     { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.ozet-kart.nakit::before   { background: linear-gradient(90deg, #10b981, #059669); }
+.ozet-kart.kart::before    { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
 .ozet-label {
     font-size: 13px;
     color: #6b7280;
@@ -82,6 +84,8 @@ body {
 .ozet-kart.ciro  .ozet-value { color: #10b981; }
 .ozet-kart.islem .ozet-value { color: #3b82f6; }
 .ozet-kart.ort   .ozet-value { color: #f59e0b; }
+.ozet-kart.nakit .ozet-value { color: #10b981; }
+.ozet-kart.kart  .ozet-value { color: #8b5cf6; }
 
 /* ALT GRID */
 .alt-grid {
@@ -254,6 +258,14 @@ body {
         <div class="ozet-label">Ort. Fis</div>
         <div class="ozet-value" id="oz-ort">--</div>
     </div>
+    <div class="ozet-kart nakit">
+        <div class="ozet-label">Nakit</div>
+        <div class="ozet-value" id="oz-nakit">--</div>
+    </div>
+    <div class="ozet-kart kart">
+        <div class="ozet-label">Kredi Karti</div>
+        <div class="ozet-value" id="oz-kart">--</div>
+    </div>
 </div>
 
 <div class="alt-grid">
@@ -310,6 +322,8 @@ async function yukle() {
         document.getElementById('oz-ciro').textContent = formatShort(o.toplam_ciro);
         document.getElementById('oz-islem').textContent = o.islem_adedi;
         document.getElementById('oz-ort').textContent = formatShort(o.ort_fis);
+        document.getElementById('oz-nakit').textContent = formatShort(o.nakit || 0);
+        document.getElementById('oz-kart').textContent = formatShort(o.kart || 0);
 
         renderKasiyerler(data.elemanlar || []);
         renderSatislar(data.satislar || []);
