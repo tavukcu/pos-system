@@ -1341,7 +1341,7 @@ def api_borclu():
     rows = query(
         "SELECT m.nMusteriID, m.sAdi, m.sSoyadi, m.sGSM, "
         "COUNT(*) AS veresiye_sayisi, "
-        "ISNULL(SUM(a.lNetTutar), 0) AS toplam_borc, "
+        "ISNULL(SUM(a.lNetTutar), 0) AS brut_borc, "
         "MAX(a.dteKayitTarihi) AS son_islem, "
         "MIN(a.dteKayitTarihi) AS ilk_borc "
         "FROM tbAlisVeris a "
@@ -1350,11 +1350,28 @@ def api_borclu():
         "WHERE RTRIM(o.sOdemeSekli) = 'V' "
         "AND a.lNetTutar < 10000000 AND a.nMusteriID > 0 "
         "GROUP BY m.nMusteriID, m.sAdi, m.sSoyadi, m.sGSM "
-        "ORDER BY toplam_borc DESC"
+        "ORDER BY brut_borc DESC"
     )
+    # Web'den girilen tahsilatlar (postgres only, sync edilmez)
+    tah_map = {}
+    if DB_MODE == 'postgres':
+        try:
+            tah_rows = query(
+                "SELECT musteri_id, SUM(odeme_tutari) AS odendi "
+                "FROM veresiye_odeme_log GROUP BY musteri_id"
+            )
+            for t in tah_rows:
+                tah_map[int(t['musteri_id'])] = float(t['odendi'])
+        except Exception:
+            pass
     now = datetime.now()
     result = []
     for r in rows:
+        brut = float(r['brut_borc'])
+        odendi = tah_map.get(int(r['nMusteriID']), 0)
+        net_borc = round(brut - odendi, 2)
+        if net_borc < 0.01:
+            continue
         ilk = r['ilk_borc']
         gun = (now - ilk).days if ilk else 0
         if gun >= 30:
@@ -1369,11 +1386,13 @@ def api_borclu():
             'soyadi': (r['sSoyadi'] or '').strip(),
             'telefon': (r['sGSM'] or '').strip(),
             'veresiye_sayisi': int(r['veresiye_sayisi']),
-            'toplam_borc': float(r['toplam_borc']),
+            'toplam_borc': net_borc,
+            'odendi': odendi,
             'son_islem': r['son_islem'].strftime('%d.%m.%Y') if r['son_islem'] else '',
             'gun': gun,
             'yaslik': yaslik,
         })
+    result.sort(key=lambda x: x['toplam_borc'], reverse=True)
     return jsonify(result)
 
 @app.route('/api/borclu/<int:musteri_id>/odeme', methods=['POST'])
@@ -1382,7 +1401,38 @@ def api_borclu_odeme(musteri_id):
     if tutar <= 0:
         return jsonify({'error': 'Gecersiz tutar'}), 400
 
-    # Veresiye kayitlari en eskiden yeniye
+    if DB_MODE == 'postgres':
+        # Brut borcu hesapla
+        brut_rows = query(
+            "SELECT COALESCE(SUM(a.lNetTutar), 0) AS brut FROM tbAlisVeris a "
+            "JOIN tbOdeme o ON a.nAlisverisID = o.nAlisverisID "
+            "WHERE a.nMusteriID = %s AND o.sOdemeSekli = 'V' AND a.lNetTutar < 10000000",
+            [musteri_id]
+        )
+        brut = float(brut_rows[0]['brut']) if brut_rows else 0
+        # Daha once yapilan tahsilatlar
+        tah_rows = query(
+            "SELECT COALESCE(SUM(odeme_tutari), 0) AS odendi FROM veresiye_odeme_log WHERE musteri_id = %s",
+            [musteri_id]
+        )
+        odendi = float(tah_rows[0]['odendi']) if tah_rows else 0
+        net_borc = round(brut - odendi, 2)
+        if net_borc < 0.01:
+            return jsonify({'error': 'Bu musteri icin borclu kayit bulunamadi'}), 404
+        m = query("SELECT sAdi, sSoyadi FROM tbMusteri WHERE nMusteriID = %s", [musteri_id])
+        musteri_adi = ((m[0]['sAdi'] or '') + ' ' + (m[0]['sSoyadi'] or '')).strip() if m else ''
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO veresiye_odeme_log (musteri_id, musteri_adi, odeme_tutari, kapanan_sayisi) "
+            "VALUES (%s, %s, %s, %s)",
+            [musteri_id, musteri_adi, tutar, 0]
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({'ok': True, 'kalan': round(net_borc - tutar, 2)})
+
+    # SQL Server modu: eski davranis
     rows = query(
         "SELECT o.nOdemeID, a.lNetTutar FROM tbOdeme o "
         "JOIN tbAlisVeris a ON RTRIM(o.nAlisverisID) = RTRIM(a.nAlisverisID) "
@@ -1393,50 +1443,44 @@ def api_borclu_odeme(musteri_id):
     )
     if not rows:
         return jsonify({'error': 'Borclu kayit bulunamadi'}), 404
-
-    # En eskiden baslayarak, tutari tamamen karsilayan kayitlari isaretle
     remaining = tutar
     odeme_ids = []
     for r in rows:
         if remaining <= 0:
             break
         kayit_tutari = float(r['lNetTutar'])
-        if remaining >= kayit_tutari - 0.01:  # tam karsiliyorsa kapat
+        if remaining >= kayit_tutari - 0.01:
             odeme_ids.append(r['nOdemeID'])
             remaining -= kayit_tutari
         else:
-            break  # yetmiyorsa dur
-
+            break
     conn = get_connection()
     cursor = conn.cursor()
     try:
         for oid in odeme_ids:
-            cursor.execute(adapt_sql("UPDATE tbOdeme SET sOdemeSekli = 'T' WHERE RTRIM(nOdemeID) = ?"), [oid.strip() if hasattr(oid, 'strip') else oid])
+            cursor.execute("UPDATE tbOdeme SET sOdemeSekli = 'T' WHERE RTRIM(nOdemeID) = ?", [oid.strip() if hasattr(oid, 'strip') else oid])
         conn.commit()
     except Exception as e:
         conn.rollback()
         conn.close()
         return jsonify({'error': str(e)}), 500
     conn.close()
-
-    # Odeme log kaydi
-    try:
-        m = query("SELECT sAdi, sSoyadi FROM tbMusteri WHERE nMusteriID = ?", [musteri_id])
-        musteri_adi = ((m[0]['sAdi'] or '') + ' ' + (m[0]['sSoyadi'] or '')).strip() if m else ''
-        if DB_MODE == 'postgres':
-            conn2 = get_connection()
-            cur2 = conn2.cursor()
-            cur2.execute(
-                "INSERT INTO veresiye_odeme_log (musteri_id, musteri_adi, odeme_tutari, kapanan_sayisi) "
-                "VALUES (%s, %s, %s, %s)",
-                [musteri_id, musteri_adi, tutar, len(odeme_ids)]
-            )
-            conn2.commit()
-            conn2.close()
-    except Exception:
-        pass  # Log hatasi ana islemi etkilemesin
-
     return jsonify({'ok': True, 'odendi_sayisi': len(odeme_ids)})
+
+@app.route('/api/borclu/<int:musteri_id>/tahsilat')
+def api_borclu_tahsilat(musteri_id):
+    if DB_MODE != 'postgres':
+        return jsonify([])
+    rows = query(
+        "SELECT id, kayit_tarihi, odeme_tutari FROM veresiye_odeme_log "
+        "WHERE musteri_id = %s ORDER BY kayit_tarihi DESC",
+        [musteri_id]
+    )
+    return jsonify([{
+        'id': r['id'],
+        'tarih': r['kayit_tarihi'].strftime('%d.%m.%Y %H:%M') if r['kayit_tarihi'] else '',
+        'tutar': float(r['odeme_tutari']),
+    } for r in rows])
 
 @app.route('/api/borclu/<int:musteri_id>')
 def api_borclu_detay(musteri_id):

@@ -67,15 +67,25 @@
         <button onclick="closeDetay()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
         <h3 id="detay-title" style="margin:0 0 4px"></h3>
         <p id="detay-telefon" style="margin:0 0 16px;color:#666;font-size:14px"></p>
-        <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
-            <span style="font-weight:600">Toplam Borc:</span>
+        <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <span style="font-weight:600">Net Borc:</span>
             <span id="detay-toplam" style="font-size:20px;font-weight:700;color:#dc3545"></span>
         </div>
+        <h4 style="margin:0 0 8px;font-size:14px;color:#666">Veresiye Islemler</h4>
         <div class="table-wrapper">
             <table>
                 <thead><tr><th>Tarih</th><th>Saat</th><th>Fis No</th><th>Eleman</th><th style="text-align:right">Tutar</th><th></th></tr></thead>
                 <tbody id="detay-tbody"></tbody>
             </table>
+        </div>
+        <div id="tahsilat-bolum" style="display:none;margin-top:20px">
+            <h4 style="margin:0 0 8px;font-size:14px;color:#198754">Tahsilat Gecmisi</h4>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>Tarih</th><th style="text-align:right">Odenen</th></tr></thead>
+                    <tbody id="tahsilat-tbody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -174,9 +184,13 @@ async function showDetay(id, ad, telefon, toplam) {
     document.getElementById('detay-telefon').textContent = telefon || 'Telefon yok';
     document.getElementById('detay-toplam').textContent = formatMoney(toplam);
     document.getElementById('detay-tbody').innerHTML = '<tr><td colspan="6">Yukleniyor...</td></tr>';
+    document.getElementById('tahsilat-bolum').style.display = 'none';
     document.getElementById('detay-modal').style.display = 'flex';
 
-    const data = await fetch('/api/borclu/' + id).then(r => r.json());
+    const [data, tahsilat] = await Promise.all([
+        fetch('/api/borclu/' + id).then(r => r.json()),
+        fetch('/api/borclu/' + id + '/tahsilat').then(r => r.json()),
+    ]);
     document.getElementById('detay-tbody').innerHTML = data.map(d => `
         <tr>
             <td>${d.tarih}</td>
@@ -187,6 +201,15 @@ async function showDetay(id, ad, telefon, toplam) {
             <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:12px" onclick="showSatisDetay('${d.id}','${d.fis_no}','${d.tarih}')">Detay</button></td>
         </tr>
     `).join('') || '<tr><td colspan="6">Kayit bulunamadi</td></tr>';
+    if (tahsilat.length) {
+        document.getElementById('tahsilat-tbody').innerHTML = tahsilat.map(t => `
+            <tr>
+                <td>${t.tarih}</td>
+                <td style="text-align:right;font-weight:600;color:#198754">${formatMoney(t.tutar)}</td>
+            </tr>
+        `).join('');
+        document.getElementById('tahsilat-bolum').style.display = 'block';
+    }
 }
 
 function closeDetay() {
@@ -236,7 +259,8 @@ async function confirmOdeme() {
         if (res.ok) {
             closeOdeme();
             await loadBorclu();
-            alert(`Odeme alindi! ${res.odendi_sayisi} islem kapatildi.`);
+            const kalan = res.kalan != null ? ` Kalan borc: ${formatMoney(res.kalan)}` : '';
+            alert(`Odeme alindi!${kalan}`);
         } else {
             alert('Hata: ' + (res.error || 'Bilinmeyen hata'));
         }
