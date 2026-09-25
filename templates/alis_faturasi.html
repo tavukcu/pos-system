@@ -48,7 +48,7 @@
 <div id="giris-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:flex-start;padding-top:40px">
     <div style="background:#fff;border-radius:12px;padding:24px;max-width:720px;width:96%;max-height:85vh;overflow-y:auto;position:relative">
         <button onclick="closeGiris()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
-        <h3 style="margin:0 0 20px">Yeni Alis Faturasi</h3>
+        <h3 id="giris-baslik" style="margin:0 0 20px">Yeni Alis Faturasi</h3>
 
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
             <div>
@@ -120,6 +120,7 @@
 {% block scripts %}
 <script>
 let tedarikcilerCache = [];
+let duzenleFisId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     yukleTedarikciler();
@@ -172,6 +173,7 @@ async function yukleListe() {
                 <td style="text-align:right;font-weight:600">${formatMoney(f.toplam)}</td>
                 <td style="white-space:nowrap">
                     <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showDetay(${f.fis_id},'${f.tarih} - ${esc(f.tedarikci)}')">Detay</button>
+                    <button class="btn btn-primary" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="duzenleFatura(${f.fis_id},${f.firma_id},'${f.tarih_raw}',${f.fis_no})">Düzenle</button>
                     <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="silFatura(${f.fis_id},'${esc(f.tedarikci)}','${f.tarih}')">Sil</button>
                 </td>
             </tr>`).join('')
@@ -220,6 +222,8 @@ async function silFatura(fis_id, tedarikci, tarih) {
 let satirSayac = 0;
 
 function openGiris() {
+    duzenleFisId = null;
+    document.getElementById('giris-baslik').textContent = 'Yeni Alis Faturasi';
     document.getElementById('giris-tarih').value = new Date().toISOString().slice(0,10);
     document.getElementById('giris-fisno').value = '';
     document.getElementById('giris-tedarikci').value = '';
@@ -228,6 +232,56 @@ function openGiris() {
     hesaplaGirisToplam();
     document.getElementById('giris-modal').style.display = 'flex';
     satirEkle();
+}
+
+async function duzenleFatura(fis_id, firma_id, tarih_raw, fis_no) {
+    duzenleFisId = fis_id;
+    document.getElementById('giris-baslik').textContent = 'Fatura Duzenle #' + fis_id;
+    document.getElementById('giris-tarih').value = tarih_raw;
+    document.getElementById('giris-fisno').value = fis_no;
+    document.getElementById('giris-tedarikci').value = firma_id;
+    document.getElementById('giris-satirlar').innerHTML = '';
+    satirSayac = 0;
+    hesaplaGirisToplam();
+    document.getElementById('giris-modal').style.display = 'flex';
+
+    const satirlar = await fetch('/api/alis-faturasi/' + fis_id).then(r => r.json());
+    satirlar.forEach(s => {
+        const id = ++satirSayac;
+        const tr = document.createElement('tr');
+        tr.id = 'satir-' + id;
+        tr.innerHTML = `
+            <td style="padding:4px">
+                <div style="position:relative">
+                    <input type="text" placeholder="Urun ara..." autocomplete="off"
+                        oninput="araUrun(${id}, this.value)"
+                        onfocus="araUrun(${id}, this.value)"
+                        style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;box-sizing:border-box"
+                        id="urun-input-${id}" value="${esc(s.urun)}">
+                    <div id="urun-dropdown-${id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:200;max-height:200px;overflow-y:auto"></div>
+                    <input type="hidden" id="urun-id-${id}" value="${s.stok_id}">
+                    <input type="hidden" id="urun-birim-${id}" value="${esc(s.birim)}">
+                </div>
+            </td>
+            <td style="padding:4px">
+                <input type="number" step="0.001" min="0" value="${s.miktar}"
+                    oninput="hesaplaGirisToplam()"
+                    id="miktar-${id}"
+                    style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;text-align:right;box-sizing:border-box">
+            </td>
+            <td style="padding:4px">
+                <input type="number" step="0.01" min="0" value="${s.fiyat.toFixed(2)}"
+                    oninput="hesaplaGirisToplam()"
+                    id="fiyat-${id}"
+                    style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;text-align:right;box-sizing:border-box">
+            </td>
+            <td id="tutar-${id}" style="text-align:right;font-size:12px;font-weight:600;white-space:nowrap;padding:4px 8px">${formatMoney(s.tutar)}</td>
+            <td style="padding:4px">
+                <button onclick="satirSil(${id})" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;line-height:1">×</button>
+            </td>`;
+        document.getElementById('giris-satirlar').appendChild(tr);
+    });
+    hesaplaGirisToplam();
 }
 
 function closeGiris() {
@@ -360,11 +414,15 @@ async function kaydet() {
     btn.disabled = true;
     btn.textContent = 'Kaydediliyor...';
 
+    const payload = { firma_id: parseInt(firma_id), tarih, fis_no: parseInt(fis_no), satirlar };
+    const url = duzenleFisId ? `/api/alis-faturasi/${duzenleFisId}/guncelle` : '/api/alis-faturasi/kaydet';
+    const method = duzenleFisId ? 'PUT' : 'POST';
+
     try {
-        const res = await fetch('/api/alis-faturasi/kaydet', {
-            method: 'POST',
+        const res = await fetch(url, {
+            method,
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ firma_id: parseInt(firma_id), tarih, fis_no: parseInt(fis_no), satirlar })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (!res.ok) { alert(data.error || 'Kayit hatasi'); return; }

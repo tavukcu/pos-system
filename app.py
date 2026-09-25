@@ -909,7 +909,7 @@ def api_alis_faturasi_liste():
     filtre = ("AND " + " AND ".join(filtres)) if filtres else ""
     rows = query(
         "SELECT TOP 200 m.nStokFisiID, m.dteFisTarihi AS tarih, "
-        "m.lFisNo AS fis_no, m.lNetTutar AS toplam, "
+        "m.lFisNo AS fis_no, m.lNetTutar AS toplam, m.nFirmaID, "
         "ISNULL(f.sAciklama, '') AS tedarikci, "
         "ISNULL(d.satir_sayisi, 0) AS satir_sayisi "
         "FROM tbStokFisiMaster m "
@@ -925,10 +925,12 @@ def api_alis_faturasi_liste():
     return jsonify([{
         'fis_id': int(r['nStokFisiID']),
         'tarih': r['tarih'].strftime('%d.%m.%Y') if r['tarih'] else '',
+        'tarih_raw': r['tarih'].strftime('%Y-%m-%d') if r['tarih'] else '',
         'satir': int(r['satir_sayisi']),
         'toplam': float(r['toplam']),
         'fis_no': int(r['fis_no'] or 0),
         'tedarikci': (r.get('tedarikci') or '').strip(),
+        'firma_id': int(r['nFirmaID']),
     } for r in rows])
 
 
@@ -971,6 +973,156 @@ def api_alis_faturasi_sil(fis_id):
     finally:
         conn.close()
     return jsonify({'ok': True})
+
+
+@app.route('/api/alis-faturasi/<int:fis_id>/guncelle', methods=['PUT'])
+def api_alis_faturasi_guncelle(fis_id):
+    d = request.json or {}
+    tarih_str = d.get('tarih', date.today().isoformat())
+    fis_no = int(d.get('fis_no') or 1)
+    firma_id = int(d.get('firma_id') or 1003)
+    satirlar = d.get('satirlar', [])
+
+    if not satirlar:
+        return jsonify({'error': 'En az bir urun gerekli'}), 400
+
+    try:
+        tarih = date.fromisoformat(tarih_str)
+    except Exception:
+        return jsonify({'error': 'Gecersiz tarih'}), 400
+
+    now = datetime.now()
+    tarih_dt = datetime(tarih.year, tarih.month, tarih.day)
+
+    stok_ids = [int(s['stok_id']) for s in satirlar]
+    placeholders = ','.join(['?' for _ in stok_ids])
+    stok_rows = query(
+        f"SELECT nStokID, sBirimCinsi1 FROM tbStok WHERE nStokID IN ({placeholders})",
+        stok_ids
+    )
+    birim_map = {int(r['nStokID']): (r['sBirimCinsi1'] or '').strip() for r in stok_rows}
+
+    toplam_miktar = sum(float(s['miktar']) for s in satirlar)
+    toplam_tutar = sum(round(float(s['miktar']) * float(s['fiyat']), 2) for s in satirlar)
+
+    # PostgreSQL: nislemid manuel uret
+    pg_detay_sql = None
+    base_islem_id = None
+    if DB_MODE == 'postgres':
+        islem_rows = query("SELECT COALESCE(MAX(nislemid), 0) + 1 AS next_id FROM tbstokfisidetayi")
+        base_islem_id = int(islem_rows[0]['next_id'])
+        pg_detay_sql = adapt_sql(
+            "INSERT INTO tbStokFisiDetayi ("
+            "nIslemID, nStokID, dteIslemTarihi, nFirmaID, nMusteriID, "
+            "sFisTipi, dteFisTarihi, lFisNo, nGirisCikis, sDepo, "
+            "lReyonFisNo, sStokIslem, sKasiyerRumuzu, sSaticiRumuzu, sOdemeKodu, "
+            "dteIrsaliyeTarihi, lIrsaliyeNo, "
+            "lGirisMiktar1, lGirisMiktar2, lGirisFiyat, lGirisTutar, "
+            "lCikisMiktar1, lCikisMiktar2, lCikisFiyat, lCikisTutar, "
+            "sFiyatTipi, lBrutFiyat, lBrutTutar, lMaliyetFiyat, lMaliyetTutar, "
+            "lIlaveMaliyetTutar, nIskontoYuzdesi, lIskontoTutari, "
+            "sDovizCinsi, lDovizFiyat, nReceteNo, "
+            "nKdvOrani, nHesapID, sAciklama, sHareketTipi, "
+            "bMuhasebeyeIslendimi, sKullaniciAdi, dteKayitTarihi, nStokFisiID) "
+            "VALUES (?,?,?,?,0,'FA',?,?,1,'D001',"
+            "0,'','','','',"
+            "?,0,"
+            "?,?,?,?,"
+            "0,0,0,0,"
+            "'A',?,?,?,?,"
+            "0,0,0,"
+            "'TL',?,0,"
+            "1,0,'','001',"
+            "?,\'POS\',?,?)"
+        )
+
+    master_update_sql = adapt_sql(
+        "UPDATE tbStokFisiMaster SET "
+        "nFirmaID=?, dteFisTarihi=?, dteValorTarihi=?, lFisNo=?, "
+        "lToplamMiktar=?, lMalBedeli=?, lKdvMatrahi1=?, lNetTutar=?, dteKayitTarihi=? "
+        "WHERE nStokFisiID=?"
+    )
+    master_update_params = [firma_id, tarih_dt, tarih_dt, fis_no,
+                            toplam_miktar, toplam_tutar, toplam_tutar, toplam_tutar, now,
+                            fis_id]
+
+    detay_insert_sql = adapt_sql(
+        "INSERT INTO tbStokFisiDetayi ("
+        "nStokID, dteIslemTarihi, nFirmaID, nMusteriID, "
+        "sFisTipi, dteFisTarihi, lFisNo, nGirisCikis, sDepo, "
+        "lReyonFisNo, sStokIslem, sKasiyerRumuzu, sSaticiRumuzu, sOdemeKodu, "
+        "dteIrsaliyeTarihi, lIrsaliyeNo, "
+        "lGirisMiktar1, lGirisMiktar2, lGirisFiyat, lGirisTutar, "
+        "lCikisMiktar1, lCikisMiktar2, lCikisFiyat, lCikisTutar, "
+        "sFiyatTipi, lBrutFiyat, lBrutTutar, lMaliyetFiyat, lMaliyetTutar, "
+        "lIlaveMaliyetTutar, nIskontoYuzdesi, lIskontoTutari, "
+        "sDovizCinsi, lDovizFiyat, nReceteNo, "
+        "nKdvOrani, nHesapID, sAciklama, sHareketTipi, "
+        "bMuhasebeyeIslendimi, sKullaniciAdi, dteKayitTarihi, "
+        "sDovizCinsi1, lDovizMiktari1, lDovizKuru1, "
+        "sDovizCinsi2, lDovizMiktari2, lDovizKuru2, "
+        "nOTVOrani, nStokFisiID, sHangiUygulama, sMasrafYontemi, sBirimCinsi, lBirimMiktar, "
+        "nEkSaha1, nEkSaha2, bEkSoru1, bEkSoru2, nPrim, lPrimTutari, "
+        "sSonKullaniciAdi, dteSonUpdateTarihi) "
+        "VALUES (?,?,1003,0,'FA',?,?,1,'D001',"
+        "0,'','','','',"
+        "?,0,"
+        "?,?,?,?,"
+        "0,0,0,0,"
+        "'A',?,?,?,?,"
+        "0,0,0,"
+        "'',?,0,"
+        "1,0,'','001',"
+        "0,'POS',?,"
+        "'',0,0,"
+        "'',0,0,"
+        "0,?,'FA','',?,1,"
+        "0,0,0,0,0,0,'POS',?)"
+    )
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        if DB_MODE != 'postgres':
+            cursor.execute("SET DATEFORMAT dmy")
+        cursor.execute(adapt_sql("DELETE FROM tbStokFisiDetayi WHERE nStokFisiID = ?"), [fis_id])
+        cursor.execute(master_update_sql, master_update_params)
+        for i, satir in enumerate(satirlar):
+            stok_id = int(satir['stok_id'])
+            miktar = float(satir['miktar'])
+            fiyat = float(satir['fiyat'])
+            tutar = round(miktar * fiyat, 2)
+            birim = birim_map.get(stok_id, 'AD')
+            if DB_MODE == 'postgres':
+                cursor.execute(pg_detay_sql, [
+                    base_islem_id + i, stok_id, tarih_dt, firma_id,
+                    tarih_dt, fis_no,
+                    tarih_dt,
+                    miktar, miktar, fiyat, tutar,
+                    fiyat, tutar, fiyat, tutar,
+                    fiyat,
+                    False, now, fis_id,
+                ])
+            else:
+                cursor.execute(detay_insert_sql, [
+                    stok_id, tarih_dt,
+                    tarih_dt, fis_no,
+                    tarih_dt,
+                    miktar, miktar, fiyat, tutar,
+                    fiyat, tutar, fiyat, tutar,
+                    fiyat,
+                    now,
+                    fis_id, birim,
+                    now,
+                ])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return jsonify({'ok': True, 'fis_id': fis_id, 'satir_sayisi': len(satirlar)})
 
 
 @app.route('/api/alis-faturasi/kaydet', methods=['POST'])
