@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Tedarikci Raporu - POS{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Tedarikci Analiz Raporu</h1>
+</div>
+
+<!-- FİLTRE -->
+<div class="card" style="padding:16px;margin-bottom:20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-secondary hizli-btn" data-tip="bu_ay" onclick="hizliFiltre('bu_ay')">Bu Ay</button>
+        <button class="btn btn-secondary hizli-btn" data-tip="bu_yil" onclick="hizliFiltre('bu_yil')">Bu Yil</button>
+        <button class="btn btn-secondary hizli-btn active" data-tip="son90" onclick="hizliFiltre('son90')">Son 90 Gun</button>
+        <span style="color:#dee2e6;margin:0 4px">|</span>
+        <input type="date" id="filtre-bas" onchange="yukle()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+        <span style="color:#999;font-size:13px">—</span>
+        <input type="date" id="filtre-bit" onchange="yukle()" style="padding:6px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+    </div>
+</div>
+
+<!-- ÖZET KARTLAR -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:20px">
+    <div class="stat-card">
+        <div class="label">Toplam Alis</div>
+        <div class="value success" id="s-toplam">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Tedarikci Sayisi</div>
+        <div class="value primary" id="s-tedarikci">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Fatura Sayisi</div>
+        <div class="value" id="s-fatura">--</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">En Buyuk Tedarikci</div>
+        <div id="s-enbuyuk" style="font-size:13px;font-weight:700;color:#2563eb;margin-top:4px;line-height:1.3">--</div>
+    </div>
+</div>
+
+<!-- GRAFİK -->
+<div class="card" style="margin-bottom:20px">
+    <h2 style="margin-bottom:16px">Tedarikci Bazli Alis Tutarlari</h2>
+    <div id="chart-tedarikci" style="display:flex;flex-direction:column;gap:8px"></div>
+</div>
+
+<!-- TABLO -->
+<div class="card">
+    <h2 style="margin-bottom:12px">Tedarikci Listesi</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tedarikci</th>
+                    <th style="text-align:center">Fatura</th>
+                    <th style="text-align:right">Toplam Alis</th>
+                    <th style="text-align:right">Ort. Fatura</th>
+                    <th>Son Alim</th>
+                    <th style="text-align:right">Pay %</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="liste-tbody">
+                <tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Yukleniyor...</td></tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>TOPLAM</th>
+                    <th id="t-fatura" style="text-align:center"></th>
+                    <th id="t-toplam" style="text-align:right;color:#198754"></th>
+                    <th></th><th></th><th></th><th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- ÜRÜN DETAY MODAL -->
+<div id="detay-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:560px;width:92%;max-height:80vh;overflow-y:auto;position:relative">
+        <button onclick="closeDetay()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 id="detay-baslik" style="margin:0 0 16px"></h3>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Urun</th>
+                        <th style="text-align:right">Miktar</th>
+                        <th style="text-align:right">Tutar</th>
+                        <th style="text-align:center">Fatura</th>
+                    </tr>
+                </thead>
+                <tbody id="detay-tbody">
+                    <tr><td colspan="4" style="text-align:center;color:#999">Yukleniyor...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let tumVeri = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    hizliFiltre('son90');
+});
+
+function hizliFiltre(tip) {
+    document.querySelectorAll('.hizli-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-tip="${tip}"]`)?.classList.add('active');
+    const bugun = new Date();
+    const fmt = d => d.toISOString().slice(0,10);
+    let bas, bit = fmt(bugun);
+    if (tip === 'bu_ay') {
+        bas = fmt(new Date(bugun.getFullYear(), bugun.getMonth(), 1));
+    } else if (tip === 'bu_yil') {
+        bas = fmt(new Date(bugun.getFullYear(), 0, 1));
+    } else if (tip === 'son90') {
+        const d = new Date(bugun); d.setDate(d.getDate() - 90);
+        bas = fmt(d);
+    }
+    document.getElementById('filtre-bas').value = bas;
+    document.getElementById('filtre-bit').value = bit;
+    yukle();
+}
+
+async function yukle() {
+    const bas = document.getElementById('filtre-bas').value;
+    const bit = document.getElementById('filtre-bit').value;
+    const params = new URLSearchParams();
+    if (bas) params.append('bas', bas);
+    if (bit) params.append('bit', bit);
+    const data = await fetch('/api/rapor/tedarikci?' + params).then(r => r.json());
+    tumVeri = data.tedarikciler;
+    const o = data.ozet;
+
+    document.getElementById('s-toplam').textContent = formatMoney(o.toplam_tutar);
+    document.getElementById('s-tedarikci').textContent = o.tedarikci_sayisi;
+    document.getElementById('s-fatura').textContent = o.fatura_sayisi;
+    document.getElementById('s-enbuyuk').textContent = o.en_buyuk || '--';
+
+    // Grafik
+    const maxTutar = tumVeri.length ? tumVeri[0].toplam_tutar : 1;
+    const renkler = ['#0d6efd','#198754','#fd7e14','#dc3545','#6f42c1','#20c997','#ffc107','#0dcaf0'];
+    document.getElementById('chart-tedarikci').innerHTML = tumVeri.slice(0, 8).map((t, i) => {
+        const pct = maxTutar > 0 ? (t.toplam_tutar / maxTutar * 100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px">
+            <div style="width:160px;font-size:12px;text-align:right;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.ad)}</div>
+            <div style="flex:1;background:#f0f0f0;border-radius:4px;height:22px;position:relative">
+                <div style="width:${pct}%;background:${renkler[i%renkler.length]};height:100%;border-radius:4px;transition:width .4s"></div>
+            </div>
+            <div style="width:120px;font-size:12px;font-weight:600;color:#222">${formatMoney(t.toplam_tutar)}</div>
+        </div>`;
+    }).join('');
+
+    // Tablo
+    const genelToplam = o.toplam_tutar || 1;
+    document.getElementById('liste-tbody').innerHTML = tumVeri.length
+        ? tumVeri.map(t => `
+            <tr>
+                <td><strong>${esc(t.ad)}</strong></td>
+                <td style="text-align:center;color:#666">${t.fatura_sayisi}</td>
+                <td style="text-align:right;font-weight:600">${formatMoney(t.toplam_tutar)}</td>
+                <td style="text-align:right;color:#666">${formatMoney(t.ort_fatura)}</td>
+                <td style="color:#666;font-size:12px">${t.son_alim}</td>
+                <td style="text-align:right">
+                    <span style="font-size:12px;font-weight:600;color:#0d6efd">${(t.toplam_tutar/genelToplam*100).toFixed(1)}%</span>
+                </td>
+                <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showDetay(${t.firma_id},'${esc(t.ad)}')">Urunler</button></td>
+            </tr>`).join('')
+        : '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Kayit yok</td></tr>';
+
+    document.getElementById('t-fatura').textContent = o.fatura_sayisi;
+    document.getElementById('t-toplam').textContent = formatMoney(o.toplam_tutar);
+}
+
+async function showDetay(firma_id, ad) {
+    document.getElementById('detay-baslik').textContent = ad + ' — Urun Detayi';
+    document.getElementById('detay-tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Yukleniyor...</td></tr>';
+    document.getElementById('detay-modal').style.display = 'flex';
+    const bas = document.getElementById('filtre-bas').value;
+    const bit = document.getElementById('filtre-bit').value;
+    const params = new URLSearchParams();
+    if (bas) params.append('bas', bas);
+    if (bit) params.append('bit', bit);
+    const data = await fetch(`/api/rapor/tedarikci/${firma_id}/urunler?${params}`).then(r => r.json());
+    document.getElementById('detay-tbody').innerHTML = data.length
+        ? data.map(u => `<tr>
+            <td>${esc(u.urun)}</td>
+            <td style="text-align:right">${u.miktar.toFixed(2)} ${esc(u.birim)}</td>
+            <td style="text-align:right;font-weight:600">${formatMoney(u.tutar)}</td>
+            <td style="text-align:center;color:#666">${u.fatura_sayisi}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" style="text-align:center;color:#999">Kayit yok</td></tr>';
+}
+
+function closeDetay() {
+    document.getElementById('detay-modal').style.display = 'none';
+}
+document.getElementById('detay-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetay();
+});
+
+function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
+}
+</script>
+{% endblock %}

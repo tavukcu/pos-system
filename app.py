@@ -1367,6 +1367,97 @@ def api_alis_faturasi_kaydet():
     return jsonify({'ok': True, 'fis_id': yeni_fis_id, 'satir_sayisi': len(satirlar)})
 
 
+@app.route('/tedarikci-raporu')
+def tedarikci_raporu():
+    return render_template('tedarikci_raporu.html')
+
+
+@app.route('/api/rapor/tedarikci')
+def api_rapor_tedarikci():
+    bas = request.args.get('bas', '')
+    bit = request.args.get('bit', '')
+    params = []
+    filtres = ["m.sFisTipi = 'FA' AND m.nGirisCikis = 1"]
+    if bas:
+        filtres.append("m.dteFisTarihi >= ?")
+        params.append(bas)
+    if bit:
+        from datetime import timedelta
+        bit_dt = date.fromisoformat(bit) + timedelta(days=1)
+        filtres.append("m.dteFisTarihi < ?")
+        params.append(bit_dt.isoformat())
+    filtre = " AND ".join(filtres)
+    rows = query(
+        "SELECT f.nFirmaID AS firma_id, ISNULL(f.sAciklama,'') AS ad, "
+        "COUNT(m.nStokFisiID) AS fatura_sayisi, "
+        "ISNULL(SUM(m.lNetTutar),0) AS toplam_tutar, "
+        "ISNULL(AVG(m.lNetTutar),0) AS ort_fatura, "
+        "MAX(m.dteFisTarihi) AS son_alim "
+        "FROM tbStokFisiMaster m "
+        "LEFT JOIN tbFirma f ON f.nFirmaID = m.nFirmaID "
+        f"WHERE {filtre} "
+        "GROUP BY f.nFirmaID, f.sAciklama "
+        "ORDER BY toplam_tutar DESC",
+        params
+    )
+    tedarikciler = [{
+        'firma_id': int(r['firma_id'] or 0),
+        'ad': (r['ad'] or '').strip(),
+        'fatura_sayisi': int(r['fatura_sayisi']),
+        'toplam_tutar': float(r['toplam_tutar']),
+        'ort_fatura': float(r['ort_fatura']),
+        'son_alim': r['son_alim'].strftime('%d.%m.%Y') if r['son_alim'] else '',
+    } for r in rows if (r['ad'] or '').strip()]
+    toplam = sum(t['toplam_tutar'] for t in tedarikciler)
+    fatura_toplam = sum(t['fatura_sayisi'] for t in tedarikciler)
+    return jsonify({
+        'tedarikciler': tedarikciler,
+        'ozet': {
+            'toplam_tutar': toplam,
+            'tedarikci_sayisi': len(tedarikciler),
+            'fatura_sayisi': fatura_toplam,
+            'en_buyuk': tedarikciler[0]['ad'] if tedarikciler else '',
+        }
+    })
+
+
+@app.route('/api/rapor/tedarikci/<int:firma_id>/urunler')
+def api_rapor_tedarikci_urunler(firma_id):
+    bas = request.args.get('bas', '')
+    bit = request.args.get('bit', '')
+    params = [firma_id]
+    filtres = ["d.nGirisCikis = 1", "m.nFirmaID = ?", "m.sFisTipi = 'FA'"]
+    if bas:
+        filtres.append("m.dteFisTarihi >= ?")
+        params.append(bas)
+    if bit:
+        from datetime import timedelta
+        bit_dt = date.fromisoformat(bit) + timedelta(days=1)
+        filtres.append("m.dteFisTarihi < ?")
+        params.append(bit_dt.isoformat())
+    filtre = " AND ".join(filtres)
+    rows = query(
+        "SELECT TOP 20 s.sAciklama AS urun, s.sBirimCinsi1 AS birim, "
+        "ISNULL(SUM(d.lGirisMiktar1),0) AS toplam_miktar, "
+        "ISNULL(SUM(d.lGirisTutar),0) AS toplam_tutar, "
+        "COUNT(DISTINCT m.nStokFisiID) AS fatura_sayisi "
+        "FROM tbStokFisiDetayi d "
+        "JOIN tbStokFisiMaster m ON m.nStokFisiID = d.nStokFisiID "
+        "JOIN tbStok s ON s.nStokID = d.nStokID "
+        f"WHERE {filtre} "
+        "GROUP BY s.sAciklama, s.sBirimCinsi1 "
+        "ORDER BY toplam_tutar DESC",
+        params
+    )
+    return jsonify([{
+        'urun': (r['urun'] or '').strip(),
+        'birim': (r['birim'] or '').strip(),
+        'miktar': float(r['toplam_miktar']),
+        'tutar': float(r['toplam_tutar']),
+        'fatura_sayisi': int(r['fatura_sayisi']),
+    } for r in rows])
+
+
 @app.route('/gun-sonu')
 def gun_sonu():
     return render_template('gun_sonu.html')
