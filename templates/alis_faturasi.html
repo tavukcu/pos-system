@@ -245,7 +245,16 @@ async function duzenleFatura(fis_id, firma_id, tarih_raw, fis_no) {
     hesaplaGirisToplam();
     document.getElementById('giris-modal').style.display = 'flex';
 
-    const satirlar = await fetch('/api/alis-faturasi/' + fis_id).then(r => r.json());
+    let satirlar;
+    try {
+        const resp = await fetch('/api/alis-faturasi/' + fis_id);
+        satirlar = await resp.json();
+        console.log('Detay:', fis_id, satirlar);
+        if (!Array.isArray(satirlar)) { alert('Satir verisi hatali: ' + JSON.stringify(satirlar)); return; }
+    } catch(e) {
+        alert('Satirlar yuklenemedi: ' + e.message);
+        return;
+    }
     satirlar.forEach(s => {
         const id = ++satirSayac;
         const tr = document.createElement('tr');
