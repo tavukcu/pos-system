@@ -1068,10 +1068,38 @@ def api_alis_faturasi_kaydet():
         "0,0,0,0,0,0,'POS',?)"
     )
 
-    # PostgreSQL'de nStokFisiID trigger ile degil, manuel uretilir
+    # PostgreSQL'de ID'ler trigger ile degil, manuel uretilir
+    pg_detay_sql = None
+    base_islem_id = None
     if DB_MODE == 'postgres':
         id_rows = query("SELECT COALESCE(MAX(nstokfisiid), 0) + 1 AS next_id FROM tbstokfisimaster")
         yeni_fis_id = int(id_rows[0]['next_id'])
+        islem_rows = query("SELECT COALESCE(MAX(nislemid), 0) + 1 AS next_id FROM tbstokfisidetayi")
+        base_islem_id = int(islem_rows[0]['next_id'])
+        pg_detay_sql = adapt_sql(
+            "INSERT INTO tbStokFisiDetayi ("
+            "nIslemID, nStokID, dteIslemTarihi, nFirmaID, nMusteriID, "
+            "sFisTipi, dteFisTarihi, lFisNo, nGirisCikis, sDepo, "
+            "lReyonFisNo, sStokIslem, sKasiyerRumuzu, sSaticiRumuzu, sOdemeKodu, "
+            "dteIrsaliyeTarihi, lIrsaliyeNo, "
+            "lGirisMiktar1, lGirisMiktar2, lGirisFiyat, lGirisTutar, "
+            "lCikisMiktar1, lCikisMiktar2, lCikisFiyat, lCikisTutar, "
+            "sFiyatTipi, lBrutFiyat, lBrutTutar, lMaliyetFiyat, lMaliyetTutar, "
+            "lIlaveMaliyetTutar, nIskontoYuzdesi, lIskontoTutari, "
+            "sDovizCinsi, lDovizFiyat, nReceteNo, "
+            "nKdvOrani, nHesapID, sAciklama, sHareketTipi, "
+            "bMuhasebeyeIslendimi, sKullaniciAdi, dteKayitTarihi, nStokFisiID) "
+            "VALUES (?,?,?,?,0,'FA',?,?,1,'D001',"
+            "0,'','','','',"
+            "?,0,"
+            "?,?,?,?,"
+            "0,0,0,0,"
+            "'A',?,?,?,?,"
+            "0,0,0,"
+            "'TL',?,0,"
+            "1,0,'','001',"
+            "?,\'POS\',?,?)"
+        )
         master_sql = adapt_sql(
             "INSERT INTO tbStokFisiMaster "
             "(nStokFisiID, sFisTipi, dteFisTarihi, nGirisCikis, lFisNo, nFirmaID, sDepo, "
@@ -1131,23 +1159,34 @@ def api_alis_faturasi_kaydet():
             if row is None or row[0] is None:
                 raise ValueError("tbStokFisiMaster INSERT sonrasi ID alinamadi")
             yeni_fis_id = int(row[0])
-        for satir in satirlar:
+        for i, satir in enumerate(satirlar):
             stok_id = int(satir['stok_id'])
             miktar = float(satir['miktar'])
             fiyat = float(satir['fiyat'])
             tutar = round(miktar * fiyat, 2)
             birim = birim_map.get(stok_id, 'AD')
-            cursor.execute(detay_sql, [
-                stok_id, tarih_dt,
-                tarih_dt, fis_no,
-                tarih_dt,
-                miktar, miktar, fiyat, tutar,
-                fiyat, tutar, fiyat, tutar,
-                fiyat,
-                now,
-                yeni_fis_id, birim,
-                now,
-            ])
+            if DB_MODE == 'postgres':
+                cursor.execute(pg_detay_sql, [
+                    base_islem_id + i, stok_id, tarih_dt, firma_id,
+                    tarih_dt, fis_no,
+                    tarih_dt,
+                    miktar, miktar, fiyat, tutar,
+                    fiyat, tutar, fiyat, tutar,
+                    fiyat,
+                    False, now, yeni_fis_id,
+                ])
+            else:
+                cursor.execute(detay_sql, [
+                    stok_id, tarih_dt,
+                    tarih_dt, fis_no,
+                    tarih_dt,
+                    miktar, miktar, fiyat, tutar,
+                    fiyat, tutar, fiyat, tutar,
+                    fiyat,
+                    now,
+                    yeni_fis_id, birim,
+                    now,
+                ])
         conn.commit()
     except Exception:
         conn.rollback()
