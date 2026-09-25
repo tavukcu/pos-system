@@ -1,59 +1,303 @@
 {% extends "base.html" %}
 {% block title %}Satis - POS{% endblock %}
 {% block content %}
-<div class="pos-layout pos-layout-simple">
-    <div class="pos-cart" style="grid-column:1/-1">
-        <div class="cart-header">
-            <div class="cart-header-top">
-                <span>Sepet (<span id="cart-count">0</span> kalem)</span>
-            </div>
-            <div class="cart-search">
-                <input type="text" id="search-input" placeholder="Barkod okutun veya urun adi yazin..." autofocus>
-                <button class="btn btn-primary" onclick="searchProducts()">Ara</button>
-            </div>
-            <div id="scan-status" class="scan-status"></div>
+
+<style>
+/* POS tam ekran layout */
+.pos-wrap {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px);
+    max-width: 820px;
+    margin: 0 auto;
+    gap: 0;
+}
+
+/* Arama */
+.pos-search-wrap {
+    background: #1e293b;
+    border-radius: 16px 16px 0 0;
+    padding: 16px 20px 12px;
+}
+.pos-search-inner {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.pos-search-wrap input {
+    flex: 1;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255,255,255,.1);
+    color: #fff;
+    outline: none;
+}
+.pos-search-wrap input::placeholder { color: rgba(255,255,255,.45); font-weight: 400; }
+.pos-search-wrap input:focus { background: rgba(255,255,255,.15); }
+.pos-search-wrap .btn-search {
+    padding: 14px 22px;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pos-search-wrap .btn-search:hover { background: #1d4ed8; }
+.pos-badge {
+    background: rgba(255,255,255,.12);
+    color: rgba(255,255,255,.7);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+/* Scan status */
+.scan-status {
+    margin-top: 8px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    display: none;
+}
+.scan-status.found    { display:block; background:#dcfce7; color:#166534; }
+.scan-status.notfound { display:block; background:#fee2e2; color:#991b1b; }
+.scan-status.scanning { display:block; background:#dbeafe; color:#1e40af; }
+
+/* Sepet öğeleri */
+.pos-items-wrap {
+    flex: 1;
+    background: #fff;
+    overflow-y: auto;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+}
+.pos-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #cbd5e1;
+    gap: 10px;
+}
+.pos-empty-icon { font-size: 56px; }
+.pos-empty-text { font-size: 15px; font-weight: 600; }
+
+.pos-item {
+    display: grid;
+    grid-template-columns: 1fr 110px 90px 36px;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background .1s;
+}
+.pos-item:hover { background: #f8fafc; }
+.pos-item-name { font-size: 14px; font-weight: 700; color: #1e293b; line-height: 1.3; }
+.pos-item-price { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.pos-item-qty {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: center;
+    color: #1e293b;
+    outline: none;
+}
+.pos-item-qty:focus { border-color: #2563eb; }
+.pos-item-tutar { font-size: 16px; font-weight: 800; color: #059669; text-align: right; }
+.pos-item-del {
+    background: none;
+    border: none;
+    color: #cbd5e1;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    transition: color .15s;
+    padding: 4px;
+}
+.pos-item-del:hover { color: #ef4444; }
+
+/* Footer */
+.pos-footer {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-top: 2px solid #e2e8f0;
+    border-radius: 0 0 16px 16px;
+    padding: 16px 20px;
+}
+.pos-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+}
+.pos-total-label { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
+.pos-total-amount { font-size: 36px; font-weight: 900; color: #1e293b; }
+.pos-btn-row { display: flex; gap: 10px; }
+.pos-btn-clear {
+    padding: 14px 22px;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1.5px solid #fca5a5;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.pos-btn-clear:hover { background: #fee2e2; }
+.pos-btn-pay {
+    flex: 1;
+    padding: 14px;
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(16,185,129,.3);
+    transition: opacity .15s, transform .1s;
+}
+.pos-btn-pay:hover { opacity: .92; transform: translateY(-1px); }
+.pos-btn-pay:active { transform: translateY(0); }
+
+/* Ödeme modal */
+.pay-modal-inner {
+    background: #fff;
+    border-radius: 18px;
+    padding: 28px 28px 24px;
+    max-width: 420px;
+    width: 96%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    position: relative;
+}
+.pay-total-display {
+    text-align: center;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.pay-total-label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.pay-total-val { font-size: 42px; font-weight: 900; color: #059669; }
+.pay-method-btns { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+.pay-method-btn {
+    padding: 14px 8px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+    color: #334155;
+}
+.pay-method-btn:hover { border-color: #2563eb; background: #eff6ff; }
+.pay-method-btn.selected { border-color: #2563eb; background: #2563eb; color: #fff; box-shadow: 0 3px 10px rgba(37,99,235,.3); }
+.pay-method-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+.pay-customer-wrap { margin-bottom: 20px; }
+.pay-customer-label { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 6px; display: block; }
+.pay-btn-row { display: flex; gap: 10px; }
+.pay-btn-cancel {
+    padding: 12px 20px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #64748b;
+}
+.pay-btn-confirm {
+    flex: 1;
+    padding: 14px;
+    background: #059669;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+}
+.pay-btn-confirm:hover { background: #047857; }
+</style>
+
+<div class="pos-wrap">
+    <!-- ARAMA -->
+    <div class="pos-search-wrap">
+        <div class="pos-search-inner">
+            <input type="text" id="search-input" placeholder="Barkod okutun veya urun adi yazin..." autofocus>
+            <span class="pos-badge"><span id="cart-count">0</span> kalem</span>
+            <button class="btn-search" onclick="searchProducts()">Ara</button>
         </div>
-        <div class="cart-items" id="cart-items"></div>
-        <div class="cart-footer">
-            <div class="cart-total">
-                <span>TOPLAM</span>
-                <span id="cart-total">0,00 TL</span>
-            </div>
-            <div class="cart-actions">
-                <button class="btn btn-danger btn-lg" onclick="clearCart()">Temizle</button>
-                <button class="btn btn-success btn-lg" onclick="completeSale()">Odeme Al</button>
-            </div>
+        <div id="scan-status" class="scan-status"></div>
+    </div>
+
+    <!-- SEPET KALEMLERİ -->
+    <div class="pos-items-wrap" id="cart-items">
+        <div class="pos-empty">
+            <div class="pos-empty-icon">&#9655;</div>
+            <div class="pos-empty-text">Barkod okutun veya urun arayın</div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="pos-footer">
+        <div class="pos-total-row">
+            <span class="pos-total-label">Toplam</span>
+            <span class="pos-total-amount" id="cart-total">0,00 ₺</span>
+        </div>
+        <div class="pos-btn-row">
+            <button class="pos-btn-clear" onclick="clearCart()">&#10005; Temizle</button>
+            <button class="pos-btn-pay" onclick="completeSale()">Odeme Al</button>
         </div>
     </div>
 </div>
 
-<!-- ODEME MODAL -->
+<!-- ÖDEME MODAL -->
 <div class="modal-overlay" id="payment-modal">
-    <div class="modal">
-        <h3>Odeme</h3>
-        <div class="form-group">
-            <label>Toplam Tutar</label>
-            <input type="text" id="pay-total" readonly style="font-size:24px;font-weight:700;text-align:center">
+    <div class="pay-modal-inner">
+        <button onclick="closeModal('payment-modal')" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:26px;cursor:pointer;color:#94a3b8;line-height:1">&times;</button>
+        <div class="pay-total-display">
+            <div class="pay-total-label">Odeme Tutari</div>
+            <div class="pay-total-val" id="pay-total">--</div>
         </div>
-        <div class="form-group">
-            <label>Odeme Sekli</label>
-            <select id="pay-method">
-                <option value="N">Nakit</option>
-                <option value="K">Kredi Karti</option>
-                <option value="V">Veresiye</option>
-            </select>
+        <div class="pay-method-btns">
+            <button class="pay-method-btn selected" data-val="N" onclick="selectPayMethod(this)">
+                <span class="pay-method-icon">&#9654;</span>Nakit
+            </button>
+            <button class="pay-method-btn" data-val="K" onclick="selectPayMethod(this)">
+                <span class="pay-method-icon">&#9632;</span>Kredi Karti
+            </button>
+            <button class="pay-method-btn" data-val="V" onclick="selectPayMethod(this)">
+                <span class="pay-method-icon">&#9670;</span>Veresiye
+            </button>
         </div>
-        <div class="form-group">
-            <label>Musteri (Opsiyonel)</label>
-            <input type="text" id="pay-customer" placeholder="Musteri ara...">
-            <div id="customer-results" style="margin-top:8px"></div>
+        <input type="hidden" id="pay-method" value="N">
+        <div class="pay-customer-wrap">
+            <label class="pay-customer-label">Musteri (Opsiyonel)</label>
+            <input type="text" id="pay-customer" placeholder="Isim veya telefon ara..."
+                style="font-size:14px;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;width:100%">
+            <div id="customer-results" style="margin-top:6px;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;display:none"></div>
         </div>
         <input type="hidden" id="pay-customer-id" value="0">
         <input type="hidden" id="pay-customer-name" value="">
         <input type="hidden" id="pay-customer-surname" value="">
-        <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeModal('payment-modal')">Iptal</button>
-            <button class="btn btn-success btn-lg" onclick="confirmPayment()">Onayla</button>
+        <div class="pay-btn-row">
+            <button class="pay-btn-cancel" onclick="closeModal('payment-modal')">Iptal</button>
+            <button class="pay-btn-confirm" onclick="confirmPayment()">Onayla &rarr;</button>
         </div>
     </div>
 </div>
@@ -436,16 +680,23 @@ function addToCart(product, miktar) {
 }
 
 function renderCart() {
-    document.getElementById('cart-items').innerHTML = cart.map((item, i) => `
-        <div class="cart-item">
-            <div class="ci-name">${item.ad}</div>
-            <input class="ci-qty" type="number" value="${item.miktar.toFixed(3)}" min="0.001" step="0.001"
-                onchange="updateQty(${i}, this.value)">
-            <div class="ci-price">${(item.miktar * item.fiyat).toFixed(2)} TL</div>
-            <button class="ci-remove" onclick="removeItem(${i})">x</button>
-        </div>
-    `).join('');
-
+    const wrap = document.getElementById('cart-items');
+    if (!cart.length) {
+        wrap.innerHTML = `<div class="pos-empty"><div class="pos-empty-icon">&#9655;</div><div class="pos-empty-text">Barkod okutun veya urun arayin</div></div>`;
+    } else {
+        wrap.innerHTML = cart.map((item, i) => `
+            <div class="pos-item">
+                <div>
+                    <div class="pos-item-name">${item.ad}</div>
+                    <div class="pos-item-price">${item.fiyat.toFixed(2)} &#8378; / ${item.birim || 'KG'}</div>
+                </div>
+                <input class="pos-item-qty" type="number" value="${item.miktar.toFixed(3)}" min="0.001" step="0.001"
+                    onchange="updateQty(${i}, this.value)">
+                <div class="pos-item-tutar">${formatMoney(item.miktar * item.fiyat)}</div>
+                <button class="pos-item-del" onclick="removeItem(${i})">&#215;</button>
+            </div>
+        `).join('');
+    }
     const total = cart.reduce((sum, item) => sum + item.miktar * item.fiyat, 0);
     document.getElementById('cart-total').textContent = formatMoney(total);
     document.getElementById('cart-count').textContent = cart.length;
@@ -474,20 +725,33 @@ function clearCart() {
 // --- ODEME ---
 function completeSale() {
     if (!cart.length) { alert('Sepet bos!'); return; }
-    document.getElementById('pay-total').value = formatMoney(
+    document.getElementById('pay-total').textContent = formatMoney(
         cart.reduce((s, i) => s + i.miktar * i.fiyat, 0)
     );
+    // Reset payment method selection
+    document.querySelectorAll('.pay-method-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector('.pay-method-btn[data-val="N"]').classList.add('selected');
+    document.getElementById('pay-method').value = 'N';
     document.getElementById('payment-modal').classList.add('active');
+}
+
+function selectPayMethod(btn) {
+    document.querySelectorAll('.pay-method-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('pay-method').value = btn.dataset.val;
 }
 
 document.getElementById('pay-customer').addEventListener('input', async function() {
     const q = this.value.trim();
     if (q.length < 2) { document.getElementById('customer-results').innerHTML = ''; return; }
     const data = await fetch('/api/musteriler?q=' + encodeURIComponent(q)).then(r => r.json());
-    document.getElementById('customer-results').innerHTML = data.slice(0, 5).map(m =>
-        `<div style="padding:6px;cursor:pointer;border-bottom:1px solid #eee"
+    const res = document.getElementById('customer-results');
+    res.style.display = data.length ? 'block' : 'none';
+    res.innerHTML = data.slice(0, 5).map(m =>
+        `<div style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:13px;background:#fff"
+              onmouseover="this.style.background='#f0f6ff'" onmouseout="this.style.background='#fff'"
               onclick="selectCustomer(${m.id},'${m.adi.replace(/'/g,"\\'")}','${m.soyadi.replace(/'/g,"\\'")}')">
-            ${m.adi} ${m.soyadi} - ${m.telefon}
+            <strong>${m.adi} ${m.soyadi}</strong> <span style="color:#94a3b8;margin-left:6px">${m.telefon || ''}</span>
         </div>`
     ).join('');
 });
@@ -497,6 +761,7 @@ function selectCustomer(id, adi, soyadi) {
     document.getElementById('pay-customer-name').value = adi;
     document.getElementById('pay-customer-surname').value = soyadi;
     document.getElementById('pay-customer').value = adi + ' ' + soyadi;
+    document.getElementById('customer-results').style.display = 'none';
     document.getElementById('customer-results').innerHTML = '';
 }
 
