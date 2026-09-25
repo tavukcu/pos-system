@@ -258,7 +258,11 @@ async function duzenleFatura(fis_id, firma_id, tarih_raw, fis_no) {
         return;
     }
     document.getElementById('giris-satirlar').innerHTML = '';
-    satirlar.forEach(s => {
+    if (!satirlar.length) {
+        document.getElementById('giris-satirlar').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:12px">Bu faturada kayitli satir yok</td></tr>';
+    }
+    satirlar.forEach((s, idx) => {
+        try {
         const id = ++satirSayac;
         const tr = document.createElement('tr');
         tr.id = 'satir-' + id;
@@ -292,6 +296,9 @@ async function duzenleFatura(fis_id, firma_id, tarih_raw, fis_no) {
                 <button onclick="satirSil(${id})" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;line-height:1">×</button>
             </td>`;
         document.getElementById('giris-satirlar').appendChild(tr);
+        } catch(ex) {
+            document.getElementById('giris-satirlar').innerHTML += `<tr><td colspan="5" style="color:red;padding:4px">Satir ${idx+1} hatasi: ${ex.message}</td></tr>`;
+        }
     });
     hesaplaGirisToplam();
 }
