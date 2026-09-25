@@ -1006,7 +1006,7 @@ def api_alis_faturasi_kaydet():
         "nOTVOrani1, lOTVMatrahi1, lOTV1, nOTVOrani2, lOTVMatrahi2, lOTV2, "
         "bKilitli, bEfatura, sEfaturaTipi, sEfaturaGuid, nEfaturaDurum) "
         "VALUES ('FA',?,1,?,?,'D001',"
-        "?,0,0,0,"
+        "?,?,?,?,"
         "?,?,0,"
         "0,0,0,0,0,"
         "0,0,0,"
@@ -1016,13 +1016,23 @@ def api_alis_faturasi_kaydet():
         "0,0,0,"
         "0,0,0,"
         "?,0,0,0,"
-        "'001',0,1,"
-        "0,'',0,"
+        "'001',?,?,"
+        "0,'',?,"
         "'POS',?,'', "
         "0,?,0,0,0,0,"
-        "0,0,'','',0)"
+        "?,?,'','',0)"
     )
-    master_params = [tarih_dt, fis_no, firma_id, tarih_dt, toplam_miktar, toplam_tutar, toplam_tutar, toplam_tutar, now, toplam_tutar]
+    master_params = [
+        tarih_dt, fis_no, firma_id, tarih_dt,
+        False, False, False,
+        toplam_miktar, toplam_tutar,
+        toplam_tutar,
+        toplam_tutar,
+        False, True, False,
+        now,
+        toplam_tutar,
+        False, False,
+    ]
 
     detay_sql = adapt_sql(
         "INSERT INTO tbStokFisiDetayi ("
