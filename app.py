@@ -1068,16 +1068,69 @@ def api_alis_faturasi_kaydet():
         "0,0,0,0,0,0,'POS',?)"
     )
 
+    # PostgreSQL'de nStokFisiID trigger ile degil, manuel uretilir
+    if DB_MODE == 'postgres':
+        id_rows = query("SELECT COALESCE(MAX(nstokfisiid), 0) + 1 AS next_id FROM tbstokfisimaster")
+        yeni_fis_id = int(id_rows[0]['next_id'])
+        master_sql = adapt_sql(
+            "INSERT INTO tbStokFisiMaster "
+            "(nStokFisiID, sFisTipi, dteFisTarihi, nGirisCikis, lFisNo, nFirmaID, sDepo, "
+            "dteValorTarihi, bPesinmi, bListelendimi, bHizmetFaturasimi, "
+            "lToplamMiktar, lMalBedeli, lMalIskontoTutari, "
+            "nDipIskontoYuzdesi1, lDipIskontoTutari1, nDipIskontoYuzdesi2, "
+            "lDipIskontoTutari2, lDipIskontoTutari3, "
+            "lEkmaliyet1, lEkmaliyet2, lEkmaliyet3, "
+            "nKdvOrani1, lKdvMatrahi1, lKdv1, "
+            "nKdvOrani2, lKdvMatrahi2, lKdv2, "
+            "nKdvOrani3, lKdvMatrahi3, lKdv3, "
+            "nKdvOrani4, lKdvMatrahi4, lKdv4, "
+            "nKdvOrani5, lKdvMatrahi5, lKdv5, "
+            "lNetTutar, nTevkifatKdvOrani, lTevkifatKdvMatrahi, lTevkifatKdv, "
+            "sHareketTipi, bMuhasebeyeIslendimi, bFisTamamlandimi, "
+            "lTransferFisiID, sTransferDepo, bFaturayaDonustumu, "
+            "sKullaniciAdi, dteKayitTarihi, sYaziIle, "
+            "nOTVOrani1, lOTVMatrahi1, lOTV1, nOTVOrani2, lOTVMatrahi2, lOTV2, "
+            "bKilitli, bEfatura, sEfaturaTipi, sEfaturaGuid, nEfaturaDurum) "
+            "VALUES (?,\'FA\',?,1,?,?,\'D001\',"
+            "?,?,?,?,"
+            "?,?,0,"
+            "0,0,0,0,0,"
+            "0,0,0,"
+            "1,?,0,"
+            "0,0,0,"
+            "0,0,0,"
+            "0,0,0,"
+            "0,0,0,"
+            "?,0,0,0,"
+            "\'001\',?,?,"
+            "0,\'\',?,"
+            "\'POS\',?,\'\', "
+            "0,?,0,0,0,0,"
+            "?,?,\'\',\'\',0)"
+        )
+        master_params = [
+            yeni_fis_id, tarih_dt, fis_no, firma_id, tarih_dt,
+            False, False, False,
+            toplam_miktar, toplam_tutar,
+            toplam_tutar,
+            toplam_tutar,
+            False, True, False,
+            now,
+            toplam_tutar,
+            False, False,
+        ]
+
     # Tum INSERT'leri tek connection'da yap
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute(master_sql, master_params)
-        cursor.execute("SELECT @@IDENTITY AS id")
-        row = cursor.fetchone()
-        if row is None or row[0] is None:
-            raise ValueError("tbStokFisiMaster INSERT sonrasi ID alinamadi")
-        yeni_fis_id = int(row[0])
+        if DB_MODE != 'postgres':
+            cursor.execute("SELECT @@IDENTITY AS id")
+            row = cursor.fetchone()
+            if row is None or row[0] is None:
+                raise ValueError("tbStokFisiMaster INSERT sonrasi ID alinamadi")
+            yeni_fis_id = int(row[0])
         for satir in satirlar:
             stok_id = int(satir['stok_id'])
             miktar = float(satir['miktar'])
