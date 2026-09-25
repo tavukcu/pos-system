@@ -236,70 +236,65 @@ function openGiris() {
 
 async function duzenleFatura(fis_id, firma_id, tarih_raw, fis_no) {
     duzenleFisId = fis_id;
+    satirSayac = 0;
+
+    let satirlar;
+    try {
+        const r = await fetch('/api/alis-faturasi/' + fis_id);
+        satirlar = await r.json();
+    } catch(e) {
+        alert('Veri yuklenemedi: ' + e.message);
+        return;
+    }
+
     document.getElementById('giris-baslik').textContent = 'Fatura Duzenle #' + fis_id;
     document.getElementById('giris-tarih').value = tarih_raw;
     document.getElementById('giris-fisno').value = fis_no;
     document.getElementById('giris-tedarikci').value = firma_id;
-    document.getElementById('giris-satirlar').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:12px">Satirlar yukleniyor...</td></tr>';
-    satirSayac = 0;
+    document.getElementById('giris-satirlar').innerHTML = '';
+
+    if (!Array.isArray(satirlar) || !satirlar.length) {
+        document.getElementById('giris-satirlar').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:12px">Bu faturada satir yok</td></tr>';
+    } else {
+        satirlar.forEach(s => {
+            const id = ++satirSayac;
+            const tr = document.createElement('tr');
+            tr.id = 'satir-' + id;
+            tr.innerHTML = `
+                <td style="padding:4px">
+                    <div style="position:relative">
+                        <input type="text" placeholder="Urun ara..." autocomplete="off"
+                            oninput="araUrun(${id}, this.value)"
+                            onfocus="araUrun(${id}, this.value)"
+                            style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;box-sizing:border-box"
+                            id="urun-input-${id}" value="${esc(s.urun)}">
+                        <div id="urun-dropdown-${id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:200;max-height:200px;overflow-y:auto"></div>
+                        <input type="hidden" id="urun-id-${id}" value="${s.stok_id}">
+                        <input type="hidden" id="urun-birim-${id}" value="${esc(s.birim)}">
+                    </div>
+                </td>
+                <td style="padding:4px">
+                    <input type="number" step="0.001" min="0" value="${s.miktar}"
+                        oninput="hesaplaGirisToplam()"
+                        id="miktar-${id}"
+                        style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;text-align:right;box-sizing:border-box">
+                </td>
+                <td style="padding:4px">
+                    <input type="number" step="0.01" min="0" value="${s.fiyat.toFixed(2)}"
+                        oninput="hesaplaGirisToplam()"
+                        id="fiyat-${id}"
+                        style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;text-align:right;box-sizing:border-box">
+                </td>
+                <td id="tutar-${id}" style="text-align:right;font-size:12px;font-weight:600;white-space:nowrap;padding:4px 8px">${formatMoney(s.tutar)}</td>
+                <td style="padding:4px">
+                    <button onclick="satirSil(${id})" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;line-height:1">×</button>
+                </td>`;
+            document.getElementById('giris-satirlar').appendChild(tr);
+        });
+    }
+
     hesaplaGirisToplam();
     document.getElementById('giris-modal').style.display = 'flex';
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/alis-faturasi/' + fis_id);
-    xhr.onload = function() {
-        try {
-            const satirlar = JSON.parse(xhr.responseText);
-            document.getElementById('giris-satirlar').innerHTML = '';
-            if (!Array.isArray(satirlar) || !satirlar.length) {
-                document.getElementById('giris-satirlar').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:12px">Bu faturada satir yok</td></tr>';
-                hesaplaGirisToplam();
-                return;
-            }
-            satirlar.forEach(s => {
-                const id = ++satirSayac;
-                const tr = document.createElement('tr');
-                tr.id = 'satir-' + id;
-                tr.innerHTML = `
-                    <td style="padding:4px">
-                        <div style="position:relative">
-                            <input type="text" placeholder="Urun ara..." autocomplete="off"
-                                oninput="araUrun(${id}, this.value)"
-                                onfocus="araUrun(${id}, this.value)"
-                                style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;box-sizing:border-box"
-                                id="urun-input-${id}" value="${esc(s.urun)}">
-                            <div id="urun-dropdown-${id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:200;max-height:200px;overflow-y:auto"></div>
-                            <input type="hidden" id="urun-id-${id}" value="${s.stok_id}">
-                            <input type="hidden" id="urun-birim-${id}" value="${esc(s.birim)}">
-                        </div>
-                    </td>
-                    <td style="padding:4px">
-                        <input type="number" step="0.001" min="0" value="${s.miktar}"
-                            oninput="hesaplaGirisToplam()"
-                            id="miktar-${id}"
-                            style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;text-align:right;box-sizing:border-box">
-                    </td>
-                    <td style="padding:4px">
-                        <input type="number" step="0.01" min="0" value="${s.fiyat.toFixed(2)}"
-                            oninput="hesaplaGirisToplam()"
-                            id="fiyat-${id}"
-                            style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;text-align:right;box-sizing:border-box">
-                    </td>
-                    <td id="tutar-${id}" style="text-align:right;font-size:12px;font-weight:600;white-space:nowrap;padding:4px 8px">${formatMoney(s.tutar)}</td>
-                    <td style="padding:4px">
-                        <button onclick="satirSil(${id})" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;line-height:1">×</button>
-                    </td>`;
-                document.getElementById('giris-satirlar').appendChild(tr);
-            });
-            hesaplaGirisToplam();
-        } catch(ex) {
-            document.getElementById('giris-satirlar').innerHTML = `<tr><td colspan="5" style="color:red;padding:12px">Hata: ${ex.message}</td></tr>`;
-        }
-    };
-    xhr.onerror = function() {
-        document.getElementById('giris-satirlar').innerHTML = '<tr><td colspan="5" style="color:red;padding:12px">Baglanti hatasi</td></tr>';
-    };
-    xhr.send();
 }
 
 function closeGiris() {
