@@ -170,7 +170,10 @@ async function yukleListe() {
                 <td style="font-size:13px">${esc(f.tedarikci)}</td>
                 <td style="text-align:center;color:#666">${f.satir}</td>
                 <td style="text-align:right;font-weight:600">${formatMoney(f.toplam)}</td>
-                <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showDetay(${f.fis_id},'${f.tarih} - ${esc(f.tedarikci)}')">Detay</button></td>
+                <td style="white-space:nowrap">
+                    <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showDetay(${f.fis_id},'${f.tarih} - ${esc(f.tedarikci)}')">Detay</button>
+                    <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="silFatura(${f.fis_id},'${esc(f.tedarikci)}','${f.tarih}')">Sil</button>
+                </td>
             </tr>`).join('')
         : '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Kayit yok</td></tr>';
 }
@@ -203,6 +206,14 @@ document.getElementById('detay-modal').addEventListener('click', function(e) {
 
 function esc(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
+}
+
+async function silFatura(fis_id, tedarikci, tarih) {
+    if (!confirm(`${tarih} - ${tedarikci} faturasini silmek istediginize emin misiniz?`)) return;
+    const res = await fetch('/api/alis-faturasi/' + fis_id + '/sil', { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Silme hatasi'); return; }
+    yukleListe();
 }
 
 // ===== GİRİŞ MODAL =====

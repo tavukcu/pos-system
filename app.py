@@ -955,6 +955,24 @@ def api_alis_faturasi_detay(fis_id):
     } for r in rows])
 
 
+@app.route('/api/alis-faturasi/<int:fis_id>/sil', methods=['DELETE'])
+def api_alis_faturasi_sil(fis_id):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        if DB_MODE != 'postgres':
+            cursor.execute("SET DATEFORMAT dmy")
+        cursor.execute(adapt_sql("DELETE FROM tbStokFisiDetayi WHERE nStokFisiID = ?"), [fis_id])
+        cursor.execute(adapt_sql("DELETE FROM tbStokFisiMaster WHERE nStokFisiID = ?"), [fis_id])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return jsonify({'ok': True})
+
+
 @app.route('/api/alis-faturasi/kaydet', methods=['POST'])
 def api_alis_faturasi_kaydet():
     d = request.json or {}
