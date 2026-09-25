@@ -2,12 +2,156 @@
 {% block title %}Ana Sayfa - POS{% endblock %}
 {% block content %}
 
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+<style>
+/* Dashboard özel stiller */
+.dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+.dash-title { font-size: 26px; font-weight: 800; color: #1e293b; margin: 0; }
+.dash-date { font-size: 13px; color: #94a3b8; margin-top: 3px; }
+.dash-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* KPI kartlar - büyük */
+.kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 16px; }
+.kpi-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 20px 22px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    border-top: 3px solid #e2e8f0;
+    transition: transform .15s, box-shadow .15s;
+    position: relative;
+    overflow: hidden;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+.kpi-card.green  { border-top-color: #10b981; }
+.kpi-card.blue   { border-top-color: #2563eb; }
+.kpi-card.amber  { border-top-color: #f59e0b; }
+.kpi-card.purple { border-top-color: #7c3aed; }
+.kpi-card.red    { border-top-color: #ef4444; }
+.kpi-card.teal   { border-top-color: #0891b2; }
+.kpi-card::after {
+    content: attr(data-icon);
+    position: absolute;
+    right: 16px;
+    top: 14px;
+    font-size: 28px;
+    opacity: .08;
+}
+.kpi-label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+.kpi-value { font-size: 26px; font-weight: 800; color: #1e293b; line-height: 1.1; }
+.kpi-value.green  { color: #059669; }
+.kpi-value.blue   { color: #2563eb; }
+.kpi-value.amber  { color: #d97706; }
+.kpi-value.purple { color: #7c3aed; }
+.kpi-value.red    { color: #dc2626; }
+.kpi-value.teal   { color: #0891b2; }
+.kpi-sub { font-size: 12px; color: #94a3b8; margin-top: 6px; min-height: 16px; }
+
+/* İkinci satır küçük kartlar */
+.kpi-sm-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 20px; }
+.kpi-sm {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    border-left: 3px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: transform .15s;
+}
+.kpi-sm:hover { transform: translateY(-1px); }
+.kpi-sm.green  { border-left-color: #10b981; }
+.kpi-sm.blue   { border-left-color: #2563eb; }
+.kpi-sm.red    { border-left-color: #ef4444; }
+.kpi-sm.orange { border-left-color: #f97316; }
+.kpi-sm .sm-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
+.kpi-sm .sm-value { font-size: 20px; font-weight: 700; color: #1e293b; }
+.kpi-sm .sm-sub { font-size: 11px; color: #94a3b8; }
+
+/* Hedef section */
+.hedef-card {
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 60%, #3b82f6 100%);
+    border-radius: 14px;
+    padding: 22px 24px;
+    color: #fff;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(37,99,235,.25);
+    position: relative;
+    overflow: hidden;
+}
+.hedef-card::before {
+    content: '';
+    position: absolute;
+    right: -30px; top: -30px;
+    width: 160px; height: 160px;
+    background: rgba(255,255,255,.05);
+    border-radius: 50%;
+}
+.hedef-yok-card {
+    background: #f8fafc;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Section başlıkları */
+.section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.section-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 16px;
+    background: var(--primary);
+    border-radius: 2px;
+}
+
+/* Chart kartlar */
+.chart-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    margin-bottom: 0;
+}
+
+@media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    .kpi-sm-grid { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 550px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .kpi-sm-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+<!-- HEADER -->
+<div class="dash-header">
     <div>
-        <h1 style="margin:0">Ana Sayfa</h1>
-        <div id="today-date" style="color:#666;font-size:14px;margin-top:2px"></div>
+        <h1 class="dash-title">Ana Sayfa</h1>
+        <div id="today-date" class="dash-date"></div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div class="dash-actions">
         <a href="/pos" class="btn btn-success btn-lg">&#9654; Satis Yap</a>
         <a href="/canli" class="btn btn-primary">&#9679; Canli</a>
         <a href="/borclu" class="btn btn-secondary">&#9888; Borclu</a>
@@ -15,59 +159,94 @@
     </div>
 </div>
 
-<!-- BUGUN OZET -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px" id="stat-cards">
-    <div class="stat-card"><div class="label">Bugun Ciro</div><div class="value success" id="st-ciro">--</div><div class="stat-change" id="st-ciro-change"></div></div>
-    <div class="stat-card"><div class="label">Islem Adedi</div><div class="value primary" id="st-islem">--</div><div class="stat-change" id="st-islem-change"></div></div>
-    <div class="stat-card"><div class="label">Ort. Fis</div><div class="value warning" id="st-ort">--</div><div class="stat-change" id="st-ort-change"></div></div>
-    <div class="stat-card"><div class="label">Nakit</div><div class="value" id="st-nakit" style="color:#198754">--</div><div class="stat-change" id="st-nakit-label"></div></div>
-    <div class="stat-card"><div class="label">Kart</div><div class="value" id="st-kart" style="color:#0d6efd">--</div><div class="stat-change" id="st-kart-label"></div></div>
-    <div class="stat-card" style="cursor:pointer" onclick="location='/borclu'"><div class="label">Toplam Borc</div><div class="value" id="st-borc" style="color:#dc3545">--</div><div class="stat-change" id="st-borc-label"></div></div>
-    <div class="stat-card"><div class="label">Bu Ay Ciro</div><div class="value" id="st-ay-ciro" style="color:#6f42c1">--</div><div class="stat-change" id="st-ay-change"></div></div>
-    <div class="stat-card" style="cursor:pointer" onclick="location='/borclu'" id="st-eski-card"><div class="label">30+ Gun Bekleyen</div><div class="value" id="st-eski" style="color:#dc3545">--</div><div class="stat-change" id="st-eski-label"></div></div>
+<!-- ANA KPI SATIRI -->
+<div class="kpi-grid" id="stat-cards">
+    <div class="kpi-card green" data-icon="₺">
+        <div class="kpi-label">Bugun Ciro</div>
+        <div class="kpi-value green" id="st-ciro">--</div>
+        <div class="kpi-sub" id="st-ciro-change"></div>
+    </div>
+    <div class="kpi-card blue" data-icon="#">
+        <div class="kpi-label">Islem Adedi</div>
+        <div class="kpi-value blue" id="st-islem">--</div>
+        <div class="kpi-sub" id="st-islem-change"></div>
+    </div>
+    <div class="kpi-card amber" data-icon="~">
+        <div class="kpi-label">Ort. Fis</div>
+        <div class="kpi-value amber" id="st-ort">--</div>
+        <div class="kpi-sub" id="st-ort-change"></div>
+    </div>
+    <div class="kpi-card purple" data-icon="∑">
+        <div class="kpi-label">Bu Ay Ciro</div>
+        <div class="kpi-value purple" id="st-ay-ciro">--</div>
+        <div class="kpi-sub" id="st-ay-change"></div>
+    </div>
+</div>
+
+<!-- İKİNCİL KPI SATIRI -->
+<div class="kpi-sm-grid">
+    <div class="kpi-sm green">
+        <div class="sm-label">Nakit</div>
+        <div class="sm-value" id="st-nakit" style="color:#059669">--</div>
+        <div class="sm-sub" id="st-nakit-label"></div>
+    </div>
+    <div class="kpi-sm blue">
+        <div class="sm-label">Kart</div>
+        <div class="sm-value" id="st-kart" style="color:#2563eb">--</div>
+        <div class="sm-sub" id="st-kart-label"></div>
+    </div>
+    <div class="kpi-sm red" style="cursor:pointer" onclick="location='/borclu'">
+        <div class="sm-label">Toplam Borc</div>
+        <div class="sm-value" id="st-borc" style="color:#dc2626">--</div>
+        <div class="sm-sub" id="st-borc-label"></div>
+    </div>
+    <div class="kpi-sm orange" style="cursor:pointer" onclick="location='/borclu'" id="st-eski-card">
+        <div class="sm-label">30+ Gun Bekleyen</div>
+        <div class="sm-value" id="st-eski" style="color:#ea580c">--</div>
+        <div class="sm-sub" id="st-eski-label"></div>
+    </div>
 </div>
 
 <!-- AYLIK HEDEF -->
-<div id="hedef-bolum" class="card" style="margin-bottom:16px;display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+<div id="hedef-bolum" class="hedef-card" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:14px">
         <div>
-            <h2 style="margin:0;display:inline">Aylik Hedef</h2>
-            <span id="hedef-ay-adi" style="font-size:13px;font-weight:400;color:#666;margin-left:8px"></span>
+            <div style="font-size:11px;font-weight:600;opacity:.7;text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">Aylik Hedef</div>
+            <div id="hedef-ay-adi" style="font-size:16px;font-weight:700;opacity:.95"></div>
         </div>
-        <button onclick="hedefDuzenle()" style="background:none;border:1px solid #dee2e6;border-radius:8px;padding:4px 12px;font-size:13px;cursor:pointer;color:#666">Degistir</button>
+        <button onclick="hedefDuzenle()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:5px 14px;font-size:12px;cursor:pointer;color:#fff;font-weight:600">Degistir</button>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;gap:4px">
-        <span id="hedef-ciro-label" style="font-size:15px;font-weight:700"></span>
-        <span id="hedef-kalan-label" style="font-size:13px;color:#666"></span>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:4px">
+        <span id="hedef-ciro-label" style="font-size:16px;font-weight:700"></span>
+        <span id="hedef-kalan-label" style="font-size:13px;opacity:.8"></span>
     </div>
-    <div style="background:#e9ecef;border-radius:8px;height:18px;overflow:hidden;margin-bottom:8px">
-        <div id="hedef-bar" style="height:100%;border-radius:8px;transition:width 0.6s ease;min-width:4px"></div>
+    <div style="background:rgba(255,255,255,.2);border-radius:6px;height:10px;overflow:hidden;margin-bottom:8px">
+        <div id="hedef-bar" style="height:100%;border-radius:6px;transition:width 0.6s ease;background:rgba(255,255,255,.8);min-width:4px"></div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;flex-wrap:wrap;gap:4px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;opacity:.8;flex-wrap:wrap;gap:4px">
         <span id="hedef-pct-label"></span>
         <span id="hedef-tahmin-label"></span>
     </div>
 </div>
 
-<!-- HEDEF YOK BANNER -->
-<div id="hedef-yok" style="background:#f8f9fa;border:1px dashed #dee2e6;border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <span style="color:#666;font-size:14px">Bu ay icin hedef belirlenmemis</span>
-    <button onclick="hedefDuzenle()" class="btn btn-primary" style="padding:5px 16px;font-size:13px">Hedef Belirle</button>
+<div id="hedef-yok" class="hedef-yok-card">
+    <span style="color:#64748b;font-size:14px">Bu ay icin hedef belirlenmemis</span>
+    <button onclick="hedefDuzenle()" class="btn btn-primary" style="padding:7px 18px;font-size:13px">Hedef Belirle</button>
 </div>
 
 <!-- HEDEF MODAL -->
 <div id="hedef-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;justify-content:center;align-items:center">
-    <div style="background:#fff;border-radius:12px;padding:24px;max-width:360px;width:90%;position:relative">
-        <button onclick="hedefKapat()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
-        <h3 style="margin:0 0 4px" id="hedef-modal-baslik">Aylik Hedef</h3>
-        <p style="margin:0 0 16px;font-size:13px;color:#666" id="hedef-modal-alt"></p>
-        <div style="margin-bottom:16px">
-            <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Hedef Ciro (TL)</label>
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:90%;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+        <button onclick="hedefKapat()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8">&times;</button>
+        <h3 style="margin:0 0 4px;font-size:18px" id="hedef-modal-baslik">Aylik Hedef</h3>
+        <p style="margin:0 0 20px;font-size:13px;color:#94a3b8" id="hedef-modal-alt"></p>
+        <div style="margin-bottom:20px">
+            <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:6px">Hedef Ciro (TL)</label>
             <input type="number" id="hedef-input" step="1000" min="1"
-                style="width:100%;padding:12px;font-size:22px;font-weight:700;border:2px solid #dee2e6;border-radius:8px;text-align:right;box-sizing:border-box">
+                style="width:100%;padding:14px;font-size:24px;font-weight:700;border:2px solid #e2e8f0;border-radius:10px;text-align:right;box-sizing:border-box">
         </div>
         <div style="display:flex;gap:8px;justify-content:space-between">
-            <button onclick="hedefSil()" class="btn btn-secondary" style="color:#dc3545;border-color:#dc3545">Sil</button>
+            <button onclick="hedefSil()" class="btn btn-secondary" style="color:#dc3545;border:1px solid #fca5a5">Sil</button>
             <div style="display:flex;gap:8px">
                 <button onclick="hedefKapat()" class="btn btn-secondary">Iptal</button>
                 <button onclick="hedefKaydet()" class="btn btn-primary">Kaydet</button>
@@ -76,26 +255,24 @@
     </div>
 </div>
 
-<div class="grid grid-2">
-    <!-- SAATLIK GRAFIK -->
-    <div class="card">
-        <h2>Bugun Saatlik Dagilim</h2>
-        <div class="chart-container" id="chart-saat" style="height:200px;margin-bottom:24px"></div>
-        <div id="saat-ozet" style="display:flex;gap:16px;font-size:13px;color:#666"></div>
+<!-- GRAFIKLER -->
+<div class="grid grid-2" style="margin-bottom:20px">
+    <div class="chart-card">
+        <div class="section-title">Bugun Saatlik Dagilim</div>
+        <div class="chart-container" id="chart-saat" style="height:200px;margin-bottom:20px"></div>
+        <div id="saat-ozet" style="display:flex;gap:16px;font-size:13px;color:#64748b"></div>
     </div>
-
-    <!-- HAFTALIK KARSILASTIRMA -->
-    <div class="card">
-        <h2>Bu Hafta <span style="font-size:13px;font-weight:400;color:#666">vs Gecen Hafta</span></h2>
+    <div class="chart-card">
+        <div class="section-title">Bu Hafta <span style="font-size:12px;font-weight:400;color:#94a3b8;margin-left:6px">vs Gecen Hafta</span></div>
         <div class="chart-container" id="chart-hafta" style="height:200px;margin-bottom:8px"></div>
-        <div id="hafta-ozet" style="font-size:13px;color:#666;text-align:center"></div>
+        <div id="hafta-ozet" style="font-size:13px;color:#64748b;text-align:center"></div>
     </div>
 </div>
 
-<div class="grid grid-2">
-    <!-- EN COK SATAN -->
-    <div class="card">
-        <h2>En Cok Satan (30 Gun)</h2>
+<!-- EN COK SATAN + SON SATISLAR -->
+<div class="grid grid-2" style="margin-bottom:20px">
+    <div class="chart-card">
+        <div class="section-title">En Cok Satan <span style="font-size:12px;font-weight:400;color:#94a3b8;margin-left:6px">Son 30 Gun</span></div>
         <div class="table-wrapper">
             <table>
                 <thead><tr><th>#</th><th>Urun</th><th style="text-align:right">Tutar</th></tr></thead>
@@ -103,10 +280,8 @@
             </table>
         </div>
     </div>
-
-    <!-- SON SATISLAR -->
-    <div class="card">
-        <h2>Son Satislar</h2>
+    <div class="chart-card">
+        <div class="section-title">Son Satislar</div>
         <div class="table-wrapper">
             <table>
                 <thead><tr><th>Fis</th><th>Saat</th><th>Musteri</th><th style="text-align:right">Tutar</th></tr></thead>
@@ -116,34 +291,27 @@
     </div>
 </div>
 
-<!-- BORC YASLANDIRMA + DIKKAT GEREKEN BORCULAR -->
+<!-- BORC YAŞLANDIRMA -->
 <div class="grid grid-2">
-    <!-- BORC YASLANDIRMA -->
-    <div class="card">
-        <h2>Borc Yaslandirma</h2>
+    <div class="chart-card">
+        <div class="section-title">Borc Yaslandirma</div>
         <div id="yaslandirma-ozet" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"></div>
-        <div id="yaslandirma-bar" style="display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px"></div>
-        <div id="yaslandirma-legend" style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:#666"></div>
+        <div id="yaslandirma-bar" style="display:flex;height:10px;border-radius:6px;overflow:hidden;gap:2px"></div>
+        <div id="yaslandirma-legend" style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:#94a3b8"></div>
     </div>
-
-    <!-- DIKKAT GEREKEN BORCULAR -->
-    <div class="card">
-        <h2>Dikkat Gereken Borcular <span style="font-size:13px;font-weight:400;color:#666">30+ gun</span></h2>
+    <div class="chart-card">
+        <div class="section-title">Dikkat Gereken Borcular <span style="font-size:12px;font-weight:400;color:#94a3b8;margin-left:4px">30+ gun</span></div>
         <div class="table-wrapper">
             <table>
                 <thead><tr><th>Musteri</th><th style="text-align:center">Gun</th><th style="text-align:right">Borc</th><th></th></tr></thead>
                 <tbody id="eski-borclar"></tbody>
             </table>
         </div>
-        <div style="text-align:right;margin-top:8px">
-            <a href="/borclu" style="font-size:13px;color:#0d6efd">Tumu goster &rarr;</a>
+        <div style="text-align:right;margin-top:10px">
+            <a href="/borclu" style="font-size:13px;color:#2563eb;font-weight:600">Tumu goster &rarr;</a>
         </div>
     </div>
 </div>
-
-<style>
-.stat-change { font-size:12px; color:#666; margin-top:3px; min-height:16px; }
-</style>
 <script>
 // --- AYLIK HEDEF ---
 function hedefKey() {
@@ -172,14 +340,14 @@ function renderHedef(buAyCiro, gunler) {
     const renk = pct >= 80 ? '#198754' : pct >= 50 ? '#fd7e14' : '#dc3545';
 
     document.getElementById('hedef-bar').style.width = pct.toFixed(1) + '%';
-    document.getElementById('hedef-bar').style.background = renk;
+    document.getElementById('hedef-bar').style.background = 'rgba(255,255,255,.85)';
     document.getElementById('hedef-ciro-label').innerHTML =
-        `<span style="color:${renk}">${formatMoney(buAyCiro)}</span> <span style="color:#999;font-weight:400;font-size:13px">/ ${formatMoney(hedef)}</span>`;
+        `<span style="color:#fff;font-size:20px">${formatMoney(buAyCiro)}</span> <span style="opacity:.6;font-weight:400;font-size:13px">/ ${formatMoney(hedef)}</span>`;
     document.getElementById('hedef-kalan-label').textContent = kalan > 0
         ? `Kalan: ${formatMoney(kalan)}`
         : 'Hedefe ulasildi!';
     document.getElementById('hedef-pct-label').innerHTML =
-        `<span style="color:${renk};font-weight:700">%${pct.toFixed(1)}</span> tamamlandi`;
+        `<span style="font-weight:700">%${pct.toFixed(1)}</span> tamamlandi`;
 
     // Tahmini ay sonu
     const gecenGunSayisi = gunler.filter(g => g.ciro > 0).length;
