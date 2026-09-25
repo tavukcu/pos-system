@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alis Faturasi #{{ fatura.fis_no }} - {{ fatura.tedarikci }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 13px; color: #222; background: #f5f5f5; }
+        .page { background: #fff; max-width: 720px; margin: 20px auto; padding: 40px; box-shadow: 0 2px 12px rgba(0,0,0,.1); }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 2px solid #2563eb; }
+        .firma-adi { font-size: 22px; font-weight: 700; color: #2563eb; }
+        .firma-alt { font-size: 11px; color: #666; margin-top: 4px; }
+        .fatura-bilgi { text-align: right; }
+        .fatura-no { font-size: 18px; font-weight: 700; color: #222; }
+        .fatura-no span { color: #2563eb; }
+        .fatura-meta { font-size: 12px; color: #555; margin-top: 6px; line-height: 1.6; }
+        .bilgiler { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+        .bilgi-kutu { background: #f8f9fa; border-radius: 8px; padding: 12px 16px; }
+        .bilgi-baslik { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+        .bilgi-deger { font-size: 14px; font-weight: 600; color: #222; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        thead th { background: #2563eb; color: #fff; padding: 10px 12px; font-size: 12px; font-weight: 600; text-align: left; }
+        thead th:nth-child(2), thead th:nth-child(3), thead th:nth-child(4) { text-align: right; }
+        tbody tr:nth-child(even) { background: #f8f9fa; }
+        tbody td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #eee; }
+        tbody td:nth-child(2), tbody td:nth-child(3), tbody td:nth-child(4) { text-align: right; }
+        tfoot td { padding: 10px 12px; font-weight: 700; font-size: 14px; border-top: 2px solid #2563eb; }
+        tfoot td:last-child { text-align: right; color: #2563eb; }
+        .imza { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; padding-top: 16px; }
+        .imza-kutu { text-align: center; }
+        .imza-cizgi { border-top: 1px solid #aaa; margin-bottom: 8px; }
+        .imza-ad { font-size: 12px; color: #555; }
+        .aksiyonlar { display: flex; gap: 10px; justify-content: center; margin-bottom: 24px; }
+        .btn-yazdir { background: #2563eb; color: #fff; border: none; padding: 10px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .btn-yazdir:hover { background: #1d4ed8; }
+        .btn-kapat { background: #f1f5f9; color: #444; border: 1px solid #ddd; padding: 10px 20px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+        .btn-kapat:hover { background: #e2e8f0; }
+        .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #eee; font-size: 11px; color: #aaa; text-align: center; }
+        @media print {
+            body { background: #fff; }
+            .page { box-shadow: none; margin: 0; padding: 24px; max-width: 100%; }
+            .aksiyonlar { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="aksiyonlar">
+            <button class="btn-yazdir" onclick="window.print()">Yazdir / PDF Kaydet</button>
+            <button class="btn-kapat" onclick="window.close()">Kapat</button>
+        </div>
+
+        <div class="header">
+            <div>
+                <div class="firma-adi">Dincer Tavukculuk</div>
+                <div class="firma-alt">Alis Faturasi</div>
+            </div>
+            <div class="fatura-bilgi">
+                <div class="fatura-no">Fatura <span>#{{ fatura.fis_no }}</span></div>
+                <div class="fatura-meta">
+                    Tarih: <strong>{{ fatura.tarih }}</strong><br>
+                    Fis ID: {{ fatura.fis_id }}
+                </div>
+            </div>
+        </div>
+
+        <div class="bilgiler">
+            <div class="bilgi-kutu">
+                <div class="bilgi-baslik">Tedarikci</div>
+                <div class="bilgi-deger">{{ fatura.tedarikci }}</div>
+            </div>
+            <div class="bilgi-kutu">
+                <div class="bilgi-baslik">Toplam Tutar</div>
+                <div class="bilgi-deger" style="color:#2563eb;font-size:18px">
+                    {{ "%.2f"|format(fatura.toplam) }} &#8378;
+                </div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:45%">Urun Adi</th>
+                    <th style="width:18%">Miktar</th>
+                    <th style="width:18%">Birim Fiyat</th>
+                    <th style="width:19%">Tutar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in fatura.satirlar %}
+                <tr>
+                    <td>{{ s.urun }}</td>
+                    <td>{{ "%.3f"|format(s.miktar) }} {{ s.birim }}</td>
+                    <td>{{ "%.2f"|format(s.fiyat) }} &#8378;</td>
+                    <td><strong>{{ "%.2f"|format(s.tutar) }} &#8378;</strong></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center;color:#999;padding:16px">Urun bulunamadi</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="text-align:right;font-size:13px;color:#555">GENEL TOPLAM</td>
+                    <td>{{ "%.2f"|format(fatura.toplam) }} &#8378;</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="imza">
+            <div class="imza-kutu">
+                <div class="imza-cizgi"></div>
+                <div class="imza-ad">Teslim Eden</div>
+            </div>
+            <div class="imza-kutu">
+                <div class="imza-cizgi"></div>
+                <div class="imza-ad">Teslim Alan</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Bu belge {{ fatura.tarih }} tarihinde duzenlenmistir.
+        </div>
+    </div>
+</body>
+</html>

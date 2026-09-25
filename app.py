@@ -861,6 +861,42 @@ def kasa_raporu():
 def alis_faturasi():
     return render_template('alis_faturasi.html')
 
+@app.route('/alis-faturasi/<int:fis_id>/yazdir')
+def alis_faturasi_yazdir(fis_id):
+    master = query(
+        "SELECT TOP 1 m.nStokFisiID, m.dteFisTarihi, m.lFisNo, m.lNetTutar, "
+        "ISNULL(f.sAciklama,'') AS tedarikci "
+        "FROM tbStokFisiMaster m "
+        "LEFT JOIN tbFirma f ON f.nFirmaID = m.nFirmaID "
+        "WHERE m.nStokFisiID = ?",
+        [fis_id]
+    )
+    if not master:
+        return "Fatura bulunamadi", 404
+    m = master[0]
+    detay = query(
+        "SELECT s.sAciklama, s.sBirimCinsi1, d.lGirisMiktar1, d.lGirisFiyat, d.lGirisTutar "
+        "FROM tbStokFisiDetayi d "
+        "JOIN tbStok s ON d.nStokID = s.nStokID "
+        "WHERE d.nStokFisiID = ? AND d.nGirisCikis = 1 ORDER BY d.nIslemID",
+        [fis_id]
+    )
+    fatura = {
+        'fis_id': fis_id,
+        'fis_no': int(m['lFisNo'] or 0),
+        'tarih': m['dteFisTarihi'].strftime('%d.%m.%Y') if m['dteFisTarihi'] else '',
+        'tedarikci': (m.get('tedarikci') or '').strip(),
+        'toplam': float(m['lNetTutar'] or 0),
+        'satirlar': [{
+            'urun': (r['sAciklama'] or '').strip(),
+            'birim': (r['sBirimCinsi1'] or '').strip(),
+            'miktar': float(r['lGirisMiktar1']),
+            'fiyat': float(r['lGirisFiyat']),
+            'tutar': float(r['lGirisTutar']),
+        } for r in detay]
+    }
+    return render_template('alis_faturasi_yazdir.html', fatura=fatura)
+
 
 @app.route('/api/alis-faturasi/tedarikciler')
 def api_alis_faturasi_tedarikciler():

@@ -174,6 +174,7 @@ async function yukleListe() {
                 <td style="white-space:nowrap">
                     <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="showDetay(${f.fis_id},'${f.tarih} - ${esc(f.tedarikci)}')">Detay</button>
                     <button class="btn btn-primary" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="duzenleFatura(${f.fis_id},${f.firma_id},'${f.tarih_raw}',${f.fis_no})">Düzenle</button>
+                    <button class="btn btn-success" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="window.open('/alis-faturasi/${f.fis_id}/yazdir','_blank')">Yazdir</button>
                     <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="silFatura(${f.fis_id},'${esc(f.tedarikci)}','${f.tarih}')">Sil</button>
                 </td>
             </tr>`).join('')
