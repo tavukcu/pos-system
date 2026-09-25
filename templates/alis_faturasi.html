@@ -3,6 +3,7 @@
 {% block content %}
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
     <h1>Alis Faturalari</h1>
+    <button class="btn btn-primary" onclick="openGiris()">+ Yeni Fatura</button>
 </div>
 
 <div class="card">
@@ -43,6 +44,63 @@
     </div>
 </div>
 
+<!-- GİRİŞ MODAL -->
+<div id="giris-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:flex-start;padding-top:40px">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:720px;width:96%;max-height:85vh;overflow-y:auto;position:relative">
+        <button onclick="closeGiris()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+        <h3 style="margin:0 0 20px">Yeni Alis Faturasi</h3>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px">Tedarikci</label>
+                <select id="giris-tedarikci" style="width:100%;padding:8px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px">
+                    <option value="">Secin...</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px">Tarih</label>
+                <input type="date" id="giris-tarih" style="width:100%;padding:8px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;box-sizing:border-box">
+            </div>
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px">Fatura No</label>
+                <input type="number" id="giris-fisno" placeholder="1" min="1" style="width:100%;padding:8px 10px;border:1px solid #dee2e6;border-radius:8px;font-size:13px;box-sizing:border-box">
+            </div>
+        </div>
+
+        <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:13px;font-weight:600;color:#555">Urunler</span>
+            <button onclick="satirEkle()" style="padding:5px 12px;background:#0d6efd;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">+ Satir Ekle</button>
+        </div>
+
+        <div class="table-wrapper" style="margin-bottom:16px">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="min-width:200px">Urun</th>
+                        <th style="text-align:right;width:90px">Miktar</th>
+                        <th style="text-align:right;width:110px">Birim Fiyat</th>
+                        <th style="text-align:right;width:110px">Tutar</th>
+                        <th style="width:30px"></th>
+                    </tr>
+                </thead>
+                <tbody id="giris-satirlar"></tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3" style="text-align:right;color:#555;font-size:13px">TOPLAM</th>
+                        <th id="giris-toplam" style="text-align:right;color:#0d6efd;font-size:15px">0,00 ₺</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button onclick="closeGiris()" style="padding:8px 20px;border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa;cursor:pointer;font-size:13px">Vazgec</button>
+            <button onclick="kaydet()" style="padding:8px 20px;background:#198754;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Kaydet</button>
+        </div>
+    </div>
+</div>
+
 <!-- DETAY MODAL -->
 <div id="detay-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center">
     <div style="background:#fff;border-radius:12px;padding:24px;max-width:580px;width:92%;max-height:80vh;overflow-y:auto;position:relative">
@@ -61,19 +119,27 @@
 
 {% block scripts %}
 <script>
+let tedarikcilerCache = [];
+
 document.addEventListener('DOMContentLoaded', () => {
     yukleTedarikciler();
     yukleListe();
 });
 
 async function yukleTedarikciler() {
-    const data = await fetch('/api/alis-faturasi/tedarikciler').then(r => r.json());
-    const sel = document.getElementById('filtre-tedarikci');
-    data.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t.firma_id;
-        opt.textContent = t.ad;
-        sel.appendChild(opt);
+    const [filtre_data, giris_data] = await Promise.all([
+        fetch('/api/alis-faturasi/tedarikciler').then(r => r.json()),
+        fetch('/api/firmalar').then(r => r.json()),
+    ]);
+    const filtre = document.getElementById('filtre-tedarikci');
+    filtre_data.forEach(t => {
+        const o = document.createElement('option'); o.value = t.firma_id; o.textContent = t.ad;
+        filtre.appendChild(o);
+    });
+    const giris = document.getElementById('giris-tedarikci');
+    giris_data.forEach(t => {
+        const o = document.createElement('option'); o.value = t.firma_id; o.textContent = t.ad;
+        giris.appendChild(o);
     });
 }
 
@@ -137,6 +203,168 @@ document.getElementById('detay-modal').addEventListener('click', function(e) {
 
 function esc(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
+}
+
+// ===== GİRİŞ MODAL =====
+let satirSayac = 0;
+
+function openGiris() {
+    document.getElementById('giris-tarih').value = new Date().toISOString().slice(0,10);
+    document.getElementById('giris-fisno').value = '';
+    document.getElementById('giris-tedarikci').value = '';
+    document.getElementById('giris-satirlar').innerHTML = '';
+    satirSayac = 0;
+    hesaplaGirisToplam();
+    document.getElementById('giris-modal').style.display = 'flex';
+    satirEkle();
+}
+
+function closeGiris() {
+    document.getElementById('giris-modal').style.display = 'none';
+}
+
+document.getElementById('giris-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeGiris();
+});
+
+function satirEkle() {
+    const id = ++satirSayac;
+    const tr = document.createElement('tr');
+    tr.id = 'satir-' + id;
+    tr.innerHTML = `
+        <td style="padding:4px">
+            <div style="position:relative">
+                <input type="text" placeholder="Urun ara..." autocomplete="off"
+                    oninput="araUrun(${id}, this.value)"
+                    onfocus="araUrun(${id}, this.value)"
+                    style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;box-sizing:border-box"
+                    id="urun-input-${id}">
+                <div id="urun-dropdown-${id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:200;max-height:200px;overflow-y:auto"></div>
+                <input type="hidden" id="urun-id-${id}">
+                <input type="hidden" id="urun-birim-${id}">
+            </div>
+        </td>
+        <td style="padding:4px">
+            <input type="number" step="0.001" min="0" placeholder="0.000"
+                oninput="hesaplaGirisToplam()"
+                id="miktar-${id}"
+                style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;text-align:right;box-sizing:border-box">
+        </td>
+        <td style="padding:4px">
+            <input type="number" step="0.01" min="0" placeholder="0,00"
+                oninput="hesaplaGirisToplam()"
+                id="fiyat-${id}"
+                style="width:100%;padding:6px 8px;border:1px solid #dee2e6;border-radius:6px;font-size:12px;text-align:right;box-sizing:border-box">
+        </td>
+        <td id="tutar-${id}" style="text-align:right;font-size:12px;font-weight:600;white-space:nowrap;padding:4px 8px">—</td>
+        <td style="padding:4px">
+            <button onclick="satirSil(${id})" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;line-height:1">×</button>
+        </td>`;
+    document.getElementById('giris-satirlar').appendChild(tr);
+    document.getElementById('urun-input-' + id).focus();
+}
+
+function satirSil(id) {
+    const tr = document.getElementById('satir-' + id);
+    if (tr) tr.remove();
+    hesaplaGirisToplam();
+}
+
+let araTimer = {};
+function araUrun(id, q) {
+    clearTimeout(araTimer[id]);
+    const dd = document.getElementById('urun-dropdown-' + id);
+    if (!q || q.length < 2) { dd.style.display = 'none'; return; }
+    araTimer[id] = setTimeout(async () => {
+        const data = await fetch('/api/urunler?q=' + encodeURIComponent(q)).then(r => r.json());
+        if (!data.length) { dd.innerHTML = '<div style="padding:8px 12px;color:#999;font-size:12px">Bulunamadi</div>'; dd.style.display = 'block'; return; }
+        dd.innerHTML = data.map(u => `
+            <div onclick="secUrun(${id}, ${u.id}, '${esc(u.ad)}', ${u.fiyat}, '${esc(u.birim)}')"
+                style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0"
+                onmouseover="this.style.background='#f0f6ff'" onmouseout="this.style.background=''">
+                <strong>${esc(u.ad)}</strong> <span style="color:#999">${esc(u.kod)}</span>
+                <span style="float:right;color:#0d6efd">${formatMoney(u.fiyat)}</span>
+            </div>`).join('');
+        dd.style.display = 'block';
+    }, 250);
+}
+
+function secUrun(id, urunId, ad, fiyat, birim) {
+    document.getElementById('urun-input-' + id).value = ad;
+    document.getElementById('urun-id-' + id).value = urunId;
+    document.getElementById('urun-birim-' + id).value = birim;
+    document.getElementById('urun-dropdown-' + id).style.display = 'none';
+    const miktarEl = document.getElementById('miktar-' + id);
+    document.getElementById('fiyat-' + id).value = fiyat.toFixed(2);
+    if (!miktarEl.value) miktarEl.focus();
+    hesaplaGirisToplam();
+}
+
+document.addEventListener('click', function(e) {
+    document.querySelectorAll('[id^="urun-dropdown-"]').forEach(dd => {
+        if (!dd.contains(e.target) && !dd.previousElementSibling?.contains(e.target)) {
+            dd.style.display = 'none';
+        }
+    });
+});
+
+function hesaplaGirisToplam() {
+    let toplam = 0;
+    document.querySelectorAll('#giris-satirlar tr').forEach(tr => {
+        const satirId = tr.id.replace('satir-', '');
+        const miktar = parseFloat(document.getElementById('miktar-' + satirId)?.value) || 0;
+        const fiyat = parseFloat(document.getElementById('fiyat-' + satirId)?.value) || 0;
+        const tutar = miktar * fiyat;
+        const tutarEl = document.getElementById('tutar-' + satirId);
+        if (tutarEl) tutarEl.textContent = tutar > 0 ? formatMoney(tutar) : '—';
+        toplam += tutar;
+    });
+    document.getElementById('giris-toplam').textContent = formatMoney(toplam);
+}
+
+async function kaydet() {
+    const firma_id = document.getElementById('giris-tedarikci').value;
+    const tarih = document.getElementById('giris-tarih').value;
+    const fis_no = document.getElementById('giris-fisno').value || 1;
+
+    if (!firma_id) { alert('Tedarikci secin'); return; }
+    if (!tarih) { alert('Tarih girin'); return; }
+
+    const satirlar = [];
+    let hata = false;
+    document.querySelectorAll('#giris-satirlar tr').forEach(tr => {
+        const satirId = tr.id.replace('satir-', '');
+        const stok_id = document.getElementById('urun-id-' + satirId)?.value;
+        const miktar = parseFloat(document.getElementById('miktar-' + satirId)?.value);
+        const fiyat = parseFloat(document.getElementById('fiyat-' + satirId)?.value);
+        if (!stok_id) { hata = true; return; }
+        if (!miktar || miktar <= 0) { hata = true; return; }
+        if (!fiyat || fiyat <= 0) { hata = true; return; }
+        satirlar.push({ stok_id: parseInt(stok_id), miktar, fiyat });
+    });
+
+    if (hata || !satirlar.length) { alert('Tum satirlarda urun, miktar ve fiyat girilmeli'); return; }
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Kaydediliyor...';
+
+    try {
+        const res = await fetch('/api/alis-faturasi/kaydet', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ firma_id: parseInt(firma_id), tarih, fis_no: parseInt(fis_no), satirlar })
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Kayit hatasi'); return; }
+        closeGiris();
+        yukleListe();
+    } catch(e) {
+        alert('Baglanti hatasi');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Kaydet';
+    }
 }
 </script>
 {% endblock %}

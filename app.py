@@ -877,6 +877,17 @@ def api_alis_faturasi_tedarikciler():
     } for r in rows if (r.get('ad') or '').strip()])
 
 
+@app.route('/api/firmalar')
+def api_firmalar():
+    rows = query(
+        "SELECT nFirmaID, sAciklama FROM tbFirma ORDER BY sAciklama"
+    )
+    return jsonify([{
+        'firma_id': int(r['nFirmaID']),
+        'ad': (r.get('sAciklama') or '').strip(),
+    } for r in rows if (r.get('sAciklama') or '').strip()])
+
+
 @app.route('/api/alis-faturasi/liste')
 def api_alis_faturasi_liste():
     firma_id = request.args.get('firma_id', type=int)
@@ -949,6 +960,7 @@ def api_alis_faturasi_kaydet():
     d = request.json or {}
     tarih_str = d.get('tarih', date.today().isoformat())
     fis_no = int(d.get('fis_no') or 1)
+    firma_id = int(d.get('firma_id') or 1003)
     satirlar = d.get('satirlar', [])
 
     if not satirlar:
@@ -993,7 +1005,7 @@ def api_alis_faturasi_kaydet():
         "sKullaniciAdi, dteKayitTarihi, sYaziIle, "
         "nOTVOrani1, lOTVMatrahi1, lOTV1, nOTVOrani2, lOTVMatrahi2, lOTV2, "
         "bKilitli, bEfatura, sEfaturaTipi, sEfaturaGuid, nEfaturaDurum) "
-        "VALUES ('FA',?,1,?,1003,'D001',"
+        "VALUES ('FA',?,1,?,?,'D001',"
         "?,0,0,0,"
         "?,?,0,"
         "0,0,0,0,0,"
@@ -1010,7 +1022,7 @@ def api_alis_faturasi_kaydet():
         "0,?,0,0,0,0,"
         "0,0,'','',0)"
     )
-    master_params = [tarih_dt, fis_no, tarih_dt, toplam_miktar, toplam_tutar, toplam_tutar, toplam_tutar, now, toplam_tutar]
+    master_params = [tarih_dt, fis_no, firma_id, tarih_dt, toplam_miktar, toplam_tutar, toplam_tutar, toplam_tutar, now, toplam_tutar]
 
     detay_sql = adapt_sql(
         "INSERT INTO tbStokFisiDetayi ("
