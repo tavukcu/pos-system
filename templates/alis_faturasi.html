@@ -240,7 +240,7 @@ async function duzenleFatura(fis_id, firma_id, tarih_raw, fis_no) {
     document.getElementById('giris-tarih').value = tarih_raw;
     document.getElementById('giris-fisno').value = fis_no;
     document.getElementById('giris-tedarikci').value = firma_id;
-    document.getElementById('giris-satirlar').innerHTML = '';
+    document.getElementById('giris-satirlar').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:12px">Satirlar yukleniyor...</td></tr>';
     satirSayac = 0;
     hesaplaGirisToplam();
     document.getElementById('giris-modal').style.display = 'flex';
@@ -249,12 +249,15 @@ async function duzenleFatura(fis_id, firma_id, tarih_raw, fis_no) {
     try {
         const resp = await fetch('/api/alis-faturasi/' + fis_id);
         satirlar = await resp.json();
-        console.log('Detay:', fis_id, satirlar);
-        if (!Array.isArray(satirlar)) { alert('Satir verisi hatali: ' + JSON.stringify(satirlar)); return; }
+        if (!Array.isArray(satirlar)) {
+            document.getElementById('giris-satirlar').innerHTML = `<tr><td colspan="5" style="color:red;padding:12px">Hata: ${JSON.stringify(satirlar)}</td></tr>`;
+            return;
+        }
     } catch(e) {
-        alert('Satirlar yuklenemedi: ' + e.message);
+        document.getElementById('giris-satirlar').innerHTML = `<tr><td colspan="5" style="color:red;padding:12px">Baglanti hatasi: ${e.message}</td></tr>`;
         return;
     }
+    document.getElementById('giris-satirlar').innerHTML = '';
     satirlar.forEach(s => {
         const id = ++satirSayac;
         const tr = document.createElement('tr');
